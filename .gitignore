@@ -1,0 +1,28 @@
+# Build directories
+build/
+out/
+.cmake/
+CMakeCache.txt
+CMakeFiles/
+
+# Compiled binaries and object files
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.so
+*.dylib
+
+# Logs and config
+*.log
+*.ini
+
+# VS Code local settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# Package managers (if we use vcpkg or Conan later)
+vcpkg_installed/
