@@ -21,7 +21,6 @@ bool FFmpegStreamNode::Initialize() {
     Cleanup();
     av_log_set_level(AV_LOG_FATAL);
     
-    // Basic buffers life cycle is managed by ctor/dtor and Initialize
     if (!m_frame) m_frame = av_frame_alloc();
     if (!m_packet) m_packet = av_packet_alloc();
     if (!m_shared_frame) m_shared_frame = av_frame_alloc();

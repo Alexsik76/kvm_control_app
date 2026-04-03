@@ -65,7 +65,6 @@ void SDLVideoDecoder::UpdateTexture() {
             m_render_frame->data[2], m_render_frame->linesize[2]
         );
     } else {
-        // Warning for developers: we only support YUV420P to skip swscale costs
         av_log(nullptr, AV_LOG_WARNING, "[Decoder] Unsupported pixel format: %d. Use YUV420P for direct rendering.\n", m_render_frame->format);
     }
 }
