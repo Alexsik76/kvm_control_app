@@ -6,8 +6,6 @@
 #include <iostream>
 #include <vector>
 
-#pragma comment(lib, "ws2_32.lib")
-
 namespace kvm::network {
 
 class UDPReceiver : public INetworkReceiver {

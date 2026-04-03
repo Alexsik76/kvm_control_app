@@ -58,8 +58,9 @@ set(FFMPEG_BIN_DIR "${FFMPEG_ROOT_DIR}/bin")
 # --- Source Files ---
 add_executable(${PROJECT_NAME} 
     src/main.cpp
-    src/video/HardwareDecoder.cpp
-    src/network/UDPReceiver.cpp
+    src/video/FFmpegStreamNode.cpp
+    src/video/SDLVideoDecoder.cpp
+    src/ui/OverlayGUI.cpp
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
@@ -84,11 +85,8 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     SDL2::SDL2 
     SDL2::SDL2main 
-    ws2_32.lib
-    bcrypt.lib
-    strmiids.lib
-    mfplat.lib
-    mfuuid.lib
+    d3d11.lib
+    dxgi.lib
 )
 
 set(FFMPEG_LIBS avcodec avformat avutil swscale)
