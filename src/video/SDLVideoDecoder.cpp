@@ -1,11 +1,12 @@
 #include "video/SDLVideoDecoder.hpp"
 #include "video/FFmpegStreamNode.hpp"
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <iostream>
 
 extern "C" {
 #include <libavutil/frame.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/log.h>
 }
 
 namespace kvm::video {
@@ -29,8 +30,8 @@ bool SDLVideoDecoder::OpenStream(const std::string& url) {
     return m_stream_node->OpenStream(url);
 }
 
-void* SDLVideoDecoder::GetTexture() const noexcept {
-    const_cast<SDLVideoDecoder*>(this)->UpdateTexture();
+void* SDLVideoDecoder::GetTexture() noexcept {
+    UpdateTexture();
     return m_texture;
 }
 
@@ -63,6 +64,9 @@ void SDLVideoDecoder::UpdateTexture() {
             m_render_frame->data[1], m_render_frame->linesize[1],
             m_render_frame->data[2], m_render_frame->linesize[2]
         );
+    } else {
+        // Warning for developers: we only support YUV420P to skip swscale costs
+        av_log(nullptr, AV_LOG_WARNING, "[Decoder] Unsupported pixel format: %d. Use YUV420P for direct rendering.\n", m_render_frame->format);
     }
 }
 

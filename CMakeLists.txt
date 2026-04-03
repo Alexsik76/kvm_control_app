@@ -12,21 +12,21 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-# --- SDL2 setup ---
+# --- SDL3 setup ---
 FetchContent_Declare(
-    SDL2
+    SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG release-2.30.x
+    GIT_TAG main
 )
 set(SDL_SHARED ON CACHE BOOL "" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(SDL2)
+FetchContent_MakeAvailable(SDL3)
 
 # --- Dear ImGui setup ---
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.90.4
+    GIT_TAG v1.91.5
 )
 FetchContent_MakeAvailable(imgui)
 
@@ -68,8 +68,8 @@ add_executable(${PROJECT_NAME}
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/imgui_demo.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer2.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp
 )
 
 if(MSVC)
@@ -85,8 +85,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
 
 # Link Libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE 
-    SDL2::SDL2 
-    SDL2::SDL2main 
+    SDL3::SDL3
     d3d11.lib
     dxgi.lib
 )
@@ -99,7 +98,7 @@ endforeach()
 # Post-build DLL Copy
 if(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2> $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL3::SDL3> $<TARGET_FILE_DIR:${PROJECT_NAME}>
     )
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${FFMPEG_BIN_DIR}" $<TARGET_FILE_DIR:${PROJECT_NAME}>

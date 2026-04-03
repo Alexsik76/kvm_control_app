@@ -37,16 +37,16 @@ if %ERRORLEVEL% neq 0 (
 
 :: Run Configuration
 echo [INFO] Running CMake Configuration...
-cmake -B build -G "Ninja"
+cmake --preset default
 
 :: Run Build
 echo [INFO] Running CMake Build...
-cmake --build build
+cmake --build build --config Debug
 
 if %ERRORLEVEL% EQU 0 (
     echo [SUCCESS] Build completed.
     echo [INFO] Running executable...
-    .\build\KVMControlApp.exe
+    .\build\Debug\KVMControlApp.exe
 ) else (
     echo [ERROR] Build failed.
 )

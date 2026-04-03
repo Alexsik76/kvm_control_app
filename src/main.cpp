@@ -1,25 +1,28 @@
 #define SDL_MAIN_HANDLED
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include "video/IVideoDecoder.hpp"
 #include "ui/OverlayGUI.hpp"
 #include <iostream>
 
 int main(int argc, char* argv[]) {
-    SDL_SetMainReady();
-
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
+    // SDL_SetMainReady is no longer needed in SDL3 for standard main
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "[SDL] Init error: " << SDL_GetError() << "\n";
         return -1;
     }
 
     SDL_Window* window = SDL_CreateWindow(
         "IP-KVM Client",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         1280, 720,
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
     );
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!window) {
+        std::cerr << "[SDL] Window error: " << SDL_GetError() << "\n";
+        return -1;
+    }
+
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
     if (!renderer) {
         std::cerr << "[SDL] Renderer error: " << SDL_GetError() << "\n";
         return -1;
@@ -44,7 +47,7 @@ int main(int argc, char* argv[]) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             gui->ProcessEvent(&ev);
-            if (ev.type == SDL_QUIT) done = true;
+            if (ev.type == SDL_EVENT_QUIT) done = true;
         }
 
         gui->NewFrame();
@@ -54,13 +57,17 @@ int main(int argc, char* argv[]) {
 
         void* tex = decoder->GetTexture();
         if (tex) {
-            SDL_RenderCopy(renderer, static_cast<SDL_Texture*>(tex), nullptr, nullptr);
+            SDL_RenderTexture(renderer, static_cast<SDL_Texture*>(tex), nullptr, nullptr);
         }
 
         gui->Render(decoder->GetWidth(), decoder->GetHeight(), url, done);
 
         SDL_RenderPresent(renderer);
     }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
 
     return 0;
 }

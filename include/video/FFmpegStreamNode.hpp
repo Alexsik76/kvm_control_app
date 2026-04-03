@@ -23,6 +23,7 @@ public:
     
     bool GetLatestFrame(AVFrame* dest_frame);
     void Flush();
+    bool IsRunning() const { return m_running.load(); }
 
 private:
     void DecodeLoop();

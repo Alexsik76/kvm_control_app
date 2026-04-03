@@ -1,11 +1,10 @@
 #pragma once
-
-#include <string>
 #include <cstdint>
+#include <string>
 
 struct SDL_Window;
 struct SDL_Renderer;
-union SDL_Event;
+#include <SDL3/SDL_events.h>
 
 namespace kvm::ui {
 

@@ -46,7 +46,7 @@ public:
      * @brief Returns an opaque pointer to the decoded SDL_Texture (may be null
      *        until the first frame arrives).
      */
-    virtual void* GetTexture() const noexcept = 0;
+    virtual void* GetTexture() noexcept = 0;
 
     /**
      * @brief Flushes internal decoder buffers. Call on reconnection.
