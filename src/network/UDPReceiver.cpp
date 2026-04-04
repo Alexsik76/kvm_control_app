@@ -1,23 +1,43 @@
 #include "network/INetworkReceiver.hpp"
-#include <winsock2.h>
-#include <ws2tcpip.h>
 #include <thread>
 #include <atomic>
 #include <iostream>
 #include <vector>
+#include <chrono>
+#include <span>
+#include <mutex>
+
+#ifdef _WIN32
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    using SocketType = SOCKET;
+    #define CLOSE_SOCKET closesocket
+#else
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <unistd.h>
+    using SocketType = int;
+    #ifndef INVALID_SOCKET
+        #define INVALID_SOCKET -1
+    #endif
+    #ifndef SOCKET_ERROR
+        #define SOCKET_ERROR -1
+    #endif
+    #define CLOSE_SOCKET close
+#endif
 
 namespace kvm::network {
 
 class UDPReceiver : public INetworkReceiver {
 public:
-    UDPReceiver() : m_socket(INVALID_SOCKET), m_running(false) {
-        WSADATA wsaData;
-        WSAStartup(MAKEWORD(2, 2), &wsaData);
-    }
+    UDPReceiver() : m_socket(INVALID_SOCKET), m_running(false) {}
 
     ~UDPReceiver() override {
         Stop();
-        WSACleanup();
     }
 
     bool Start(uint16_t port) override {
@@ -33,8 +53,9 @@ public:
         serverAddr.sin_addr.s_addr = INADDR_ANY;
         serverAddr.sin_port = htons(port);
 
-        if (bind(m_socket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-            closesocket(m_socket);
+        if (bind(m_socket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+            CLOSE_SOCKET(m_socket);
+            m_socket = INVALID_SOCKET;
             return false;
         }
 
@@ -46,7 +67,7 @@ public:
     void Stop() override {
         m_running = false;
         if (m_socket != INVALID_SOCKET) {
-            closesocket(m_socket);
+            CLOSE_SOCKET(m_socket);
             m_socket = INVALID_SOCKET;
         }
         if (m_thread.joinable()) {
@@ -55,6 +76,7 @@ public:
     }
 
     void SetCallback(DataCallback callback) override {
+        std::lock_guard<std::mutex> lock(m_mutex);
         m_callback = std::move(callback);
     }
 
@@ -63,17 +85,23 @@ private:
         std::vector<uint8_t> buffer(65507); // Max UDP packet size
         while (m_running) {
             int bytesReceived = recv(m_socket, (char*)buffer.data(), (int)buffer.size(), 0);
-            if (bytesReceived > 0 && m_callback) {
-                m_callback(std::span<const uint8_t>(buffer.data(), bytesReceived));
+            if (bytesReceived > 0) {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                if (m_callback) {
+                    m_callback(std::span<const uint8_t>(buffer.data(), bytesReceived));
+                }
             } else if (bytesReceived == SOCKET_ERROR) {
-                if (m_running) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                if (m_running) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
             }
         }
     }
 
-    SOCKET m_socket;
+    SocketType m_socket;
     std::thread m_thread;
     std::atomic<bool> m_running;
+    std::mutex m_mutex;
     DataCallback m_callback;
 };
 

@@ -30,6 +30,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
+# --- IXWebSocket setup ---
+FetchContent_Declare(
+    ixwebsocket
+    GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+    GIT_TAG v11.4.4
+)
+set(USE_TLS OFF CACHE BOOL "" FORCE) # Disable TLS for local network speed
+set(USE_ZLIB OFF CACHE BOOL "" FORCE) # Disable ZLIB (compression adds latency)
+FetchContent_MakeAvailable(ixwebsocket)
+
+# --- JSON setup ---
+FetchContent_Declare(
+    json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
+
 # --- FFmpeg setup (Using EXACT URL provided by user) ---
 FetchContent_Declare(
     ffmpeg
@@ -60,9 +77,13 @@ set(FFMPEG_BIN_DIR "${FFMPEG_ROOT_DIR}/bin")
 # --- Source Files ---
 add_executable(${PROJECT_NAME} 
     src/main.cpp
+    src/core/KVMApplication.cpp
     src/video/FFmpegStreamNode.cpp
     src/video/SDLVideoDecoder.cpp
     src/ui/OverlayGUI.cpp
+    src/control/SDLInputCapturer.cpp
+    src/control/WebSocketHIDClient.cpp
+    src/control/EventMapper.cpp
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
@@ -86,6 +107,8 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
 # Link Libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     SDL3::SDL3
+    ixwebsocket::ixwebsocket
+    nlohmann_json::nlohmann_json
     d3d11.lib
     dxgi.lib
 )

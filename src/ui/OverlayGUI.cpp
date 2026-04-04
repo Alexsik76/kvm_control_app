@@ -30,10 +30,14 @@ void OverlayGUI::NewFrame() {
     ImGui::NewFrame();
 }
 
-void OverlayGUI::Render(uint32_t stream_width, uint32_t stream_height, const std::string& current_url, bool& out_should_exit) {
+void OverlayGUI::UpdateLastKey(uint32_t scancode) {
+    m_lastKey = scancode;
+}
+
+void OverlayGUI::Render(uint32_t stream_width, uint32_t stream_height, const std::string& current_url, bool& is_running) {
     ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.6f);
-    ImGui::Begin("KVM Info", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
+    ImGui::Begin("KVM Status", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
 
     if (stream_width > 0) {
         ImGui::TextColored({0.2f, 1.0f, 0.2f, 1}, "[OK] Streaming");
@@ -42,9 +46,22 @@ void OverlayGUI::Render(uint32_t stream_width, uint32_t stream_height, const std
         ImGui::TextColored({1.0f, 0.6f, 0.0f, 1}, "Waiting for stream...");
         ImGui::Text("URL: %s", current_url.c_str());
     }
+
+    ImGui::Separator();
+    ImGui::Text("--- HID Telemetry ---");
+    
+    // Absolute Mouse Position from ImGui
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::Text("Mouse (Absolute): x=%.0f, y=%.0f", io.MousePos.x, io.MousePos.y);
+
+    if (m_lastKey > 0) {
+        ImGui::Text("Last Key: Scancode %u", m_lastKey);
+    } else {
+        ImGui::Text("Last Key: None");
+    }
     
     if (ImGui::Button("Exit")) {
-        out_should_exit = true;
+        is_running = false;
     }
     ImGui::End();
 
