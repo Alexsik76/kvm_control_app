@@ -1,10 +1,9 @@
-The video packets are arriving, but `RtpDepacketizer::ProcessPayload` returns empty vectors because it treats the raw RTP packet as the H.264 payload. `libdatachannel`'s `track->onMessage` delivers the full RTP packet including the 12+ byte RTP header, so byte 0 is the RTP version (`0x80` or `0x90`), not a NAL header.
+To avoid manual token copying, the application must automatically fetch a JWT access token from the backend API on startup.
 
-Task: 
-1. Update `RtpDepacketizer.cpp` to parse and skip the RTP header.
-   - Validate the RTP version (V=2).
-   - Calculate the RTP header length: base 12 bytes + CSRC count (CC * 4).
-   - Check for the extension bit (X). If set, read the extension header length and skip it.
-   - Adjust the `payload` pointer and `size` to point to the actual H.264 payload.
-   - Keep the existing H.264 NAL unit processing logic (Single NAL, STAP-A, FU-A) for the adjusted payload.
-2. In `WebRTCStreamNode::DecodeVideoData`, add error logging using `std::cerr` if `avcodec_send_packet` returns a value less than 0, to ensure we catch any further decoder issues.
+Task: Implement a machine-to-machine authentication step before establishing the WebRTC and WebSocket connections (e.g., inside `KVMApplication::Start` or similar initialization method).
+
+1. Read authentication parameters from `config.yaml` (e.g., `auth.login_url`, `auth.username`, and `auth.password`).
+2. Use the existing `IHttpClient` to send a POST request to `login_url`. Send the credentials as a JSON payload: `{"username": "<user>", "password": "<pass>"}` (or `application/x-www-form-urlencoded` if standard for your backend).
+3. Parse the JSON response to extract the `access_token` string.
+4. Dynamically append `?token=<access_token>` to the WebRTC signaling URL and WebSocket HID URL.
+5. If the token fetch fails, log an error to `std::cerr` and halt initialization.

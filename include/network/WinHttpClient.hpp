@@ -10,7 +10,7 @@ public:
     WinHttpClient() = default;
     ~WinHttpClient() override = default;
 
-    bool Post(const std::string& url, const std::string& body, std::string& outResponse) override;
+    bool Post(const std::string& url, const std::string& body, std::string& outResponse, const std::string& contentType = "application/json") override;
 };
 
 } // namespace kvm::network

@@ -10,7 +10,7 @@
 
 namespace kvm::network {
 
-bool WinHttpClient::Post(const std::string& url, const std::string& body, std::string& outResponse) {
+bool WinHttpClient::Post(const std::string& url, const std::string& body, std::string& outResponse, const std::string& contentType) {
 #ifdef _WIN32
     std::string cleanUrl = url;
     std::string token;
@@ -54,7 +54,8 @@ bool WinHttpClient::Post(const std::string& url, const std::string& body, std::s
         WinHttpSetOption(hRequest, WINHTTP_OPTION_SECURITY_FLAGS, &dwFlags, sizeof(dwFlags));
     }
 
-    std::wstring headers = L"Content-Type: application/json\r\nAccept: application/json\r\n";
+    std::wstring wContentType(contentType.begin(), contentType.end());
+    std::wstring headers = L"Content-Type: " + wContentType + L"\r\nAccept: application/json\r\n";
     if (!token.empty()) headers += L"Authorization: Bearer " + std::wstring(token.begin(), token.end()) + L"\r\n";
 
     if (!WinHttpSendRequest(hRequest, headers.c_str(), (DWORD)headers.length(), (LPVOID)body.c_str(), (DWORD)body.length(), (DWORD)body.length(), 0)) {
