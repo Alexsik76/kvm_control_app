@@ -1,65 +1,55 @@
-#define SDL_MAIN_HANDLED
-#include <SDL.h>
-#include "video/IVideoDecoder.hpp"
-#include "ui/OverlayGUI.hpp"
+#include "core/KVMApplication.hpp"
+#include <yaml-cpp/yaml.h>
 #include <iostream>
+#include <string>
+#include <filesystem>
+#include <format>
 
-int main(int argc, char* argv[]) {
-    SDL_SetMainReady();
+int main() {
+    std::string streamUrl = "";
+    std::string hidUrl = "";
+    std::string configPath = "config.yaml";
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-        std::cerr << "[SDL] Init error: " << SDL_GetError() << "\n";
-        return -1;
-    }
+    try {
+        if (std::filesystem::exists(configPath)) {
+            YAML::Node config = YAML::LoadFile(configPath);
+            if (config["server"]) {
+                auto srv = config["server"];
+                std::string globalHost = srv["host"] ? srv["host"].as<std::string>() : "kvm-api.lab.vn.ua";
+                std::string node_id = srv["node_id"] ? srv["node_id"].as<std::string>() : "cab2e9b3-318e-43d4-96e9-c9511ac3b889";
 
-    SDL_Window* window = SDL_CreateWindow(
-        "IP-KVM Client",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        1280, 720,
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
-    );
+                if (srv["video"]) {
+                    auto v = srv["video"];
+                    std::string host = v["host"] ? v["host"].as<std::string>() : globalHost;
+                    std::string path = v["path"] ? v["path"].as<std::string>() : "";
+                    streamUrl = std::format("https://{}{}", host, path);
+                    if (v["token"]) streamUrl += std::format("?token={}", v["token"].as<std::string>());
+                }
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    if (!renderer) {
-        std::cerr << "[SDL] Renderer error: " << SDL_GetError() << "\n";
-        return -1;
-    }
-
-    auto gui = std::make_unique<kvm::ui::OverlayGUI>(window, renderer);
-
-    auto decoder = kvm::video::CreateVideoDecoder(renderer);
-    if (!decoder->Initialize()) {
-        std::cerr << "[Decoder] Initialization failed\n";
-        return -1;
-    }
-
-    std::string url = "udp://127.0.0.1:5000";
-    if (argc > 1) {
-        url = argv[1];
-    }
-    decoder->OpenStream(url);
-
-    bool done = false;
-    while (!done) {
-        SDL_Event ev;
-        while (SDL_PollEvent(&ev)) {
-            gui->ProcessEvent(&ev);
-            if (ev.type == SDL_QUIT) done = true;
+                if (srv["hid"]) {
+                    auto h = srv["hid"];
+                    std::string host = h["host"] ? h["host"].as<std::string>() : globalHost;
+                    std::string path = h["path"] ? h["path"].as<std::string>() : std::format("/api/v1/nodes/{}/ws", node_id);
+                    hidUrl = std::format("wss://{}{}", host, path);
+                    if (srv["video"]["token"]) {
+                         hidUrl += std::format("?token={}", srv["video"]["token"].as<std::string>());
+                    }
+                }
+            }
         }
+    } catch (const std::exception& e) {
+        std::cerr << "[Config] Error: " << e.what() << "\n";
+    }
 
-        gui->NewFrame();
+    if (streamUrl.empty()) streamUrl = std::format("https://kvm-api.lab.vn.ua/api/v1/nodes/cab2e9b3-318e-43d4-96e9-c9511ac3b889/signal/offer");
+    if (hidUrl.empty()) hidUrl = "wss://kvm-api.lab.vn.ua/api/v1/nodes/cab2e9b3-318e-43d4-96e9-c9511ac3b889/ws";
 
-        SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
-        SDL_RenderClear(renderer);
+    std::cout << "[App] Video URL: " << streamUrl << "\n";
+    std::cout << "[App] HID URL:   " << hidUrl << "\n";
 
-        void* tex = decoder->GetTexture();
-        if (tex) {
-            SDL_RenderCopy(renderer, static_cast<SDL_Texture*>(tex), nullptr, nullptr);
-        }
-
-        gui->Render(decoder->GetWidth(), decoder->GetHeight(), url, done);
-
-        SDL_RenderPresent(renderer);
+    kvm::core::KVMApplication app;
+    if (app.Initialize(streamUrl, hidUrl)) {
+        app.Run();
     }
 
     return 0;

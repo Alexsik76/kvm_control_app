@@ -2,6 +2,7 @@
 
 #include "video/IVideoDecoder.hpp"
 #include <memory>
+#include <string>
 
 struct SDL_Renderer;
 struct SDL_Texture;
@@ -9,17 +10,17 @@ struct AVFrame;
 
 namespace kvm::video {
 
-class FFmpegStreamNode;
+class WebRTCStreamNode;
 
 class SDLVideoDecoder : public IVideoDecoder {
 public:
-    explicit SDLVideoDecoder(SDL_Renderer* renderer);
+    explicit SDLVideoDecoder(SDL_Renderer* renderer, std::shared_ptr<network::IHttpClient> httpClient);
     ~SDLVideoDecoder() override;
 
     bool Initialize() override;
     bool OpenStream(const std::string& url) override;
-    
-    void* GetTexture() const noexcept override;
+    bool IsConnected() const noexcept override;
+    void* GetTexture() noexcept override;
     void Flush() noexcept override;
 
     uint32_t GetWidth() const noexcept override { return m_width; }
@@ -30,12 +31,11 @@ private:
 
     SDL_Renderer* m_renderer = nullptr;
     SDL_Texture* m_texture = nullptr;
-
-    std::unique_ptr<FFmpegStreamNode> m_stream_node;
-    AVFrame* m_render_frame = nullptr;
-
     uint32_t m_width = 0;
     uint32_t m_height = 0;
+
+    std::unique_ptr<WebRTCStreamNode> m_stream_node;
+    AVFrame* m_render_frame = nullptr;
 };
 
 } // namespace kvm::video

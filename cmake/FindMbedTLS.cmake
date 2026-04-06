@@ -1,0 +1,15 @@
+set(MbedTLS_FOUND TRUE)
+set(MBEDTLS_FOUND TRUE)
+set(MbedTLS_VERSION "3.5.2")
+set(MBEDTLS_VERSION "3.5.2")
+
+set(MBEDTLS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include")
+set(MbedTLS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/_deps/mbedtls-src/include")
+set(MBEDTLS_LIBRARIES mbedtls mbedcrypto mbedx509)
+set(MbedTLS_LIBRARIES mbedtls mbedcrypto mbedx509)
+
+if(NOT TARGET MbedTLS::MbedTLS)
+    add_library(MbedTLS::MbedTLS ALIAS mbedtls)
+    add_library(MbedTLS::MbedCrypto ALIAS mbedcrypto)
+    add_library(MbedTLS::MbedX509 ALIAS mbedx509)
+endif()

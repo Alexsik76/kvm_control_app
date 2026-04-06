@@ -1,0 +1,14 @@
+server:
+  host: "kvm-api.lab.vn.ua"
+  node_id: "cab2e9b3-318e-43d4-96e9-c9511ac3b889"
+  video:
+    proto: "webrtc"
+    host: "kvm-api.lab.vn.ua"
+    port: 443
+    path: "/api/v1/nodes/cab2e9b3-318e-43d4-96e9-c9511ac3b889/signal/offer"
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkMTIwYTIxOC1jMTgwLTRhMDgtODVjNi1iMzY5NWNiOGM0MDEiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzc1NTAxNjY0LCJleHAiOjE3NzU1MDM0NjQsImFtciI6W119.9siji-9N0UqNiPmHgfaDyBIBUYlyoCNCxEnQjvBCe_8"
+  hid:
+    host: "pi4.lab.vn.ua"
+    proto: "wss"
+    port: 443
+    path: "/ws/control"

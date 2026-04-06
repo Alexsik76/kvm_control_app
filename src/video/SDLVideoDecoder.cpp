@@ -1,18 +1,19 @@
 #include "video/SDLVideoDecoder.hpp"
-#include "video/FFmpegStreamNode.hpp"
-#include <SDL.h>
+#include "video/WebRTCStreamNode.hpp"
+#include <SDL3/SDL.h>
 #include <iostream>
 
 extern "C" {
 #include <libavutil/frame.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/log.h>
 }
 
 namespace kvm::video {
 
-SDLVideoDecoder::SDLVideoDecoder(SDL_Renderer* renderer)
+SDLVideoDecoder::SDLVideoDecoder(SDL_Renderer* renderer, std::shared_ptr<network::IHttpClient> httpClient)
     : m_renderer(renderer) {
-    m_stream_node = std::make_unique<FFmpegStreamNode>();
+    m_stream_node = std::make_unique<WebRTCStreamNode>(std::move(httpClient));
     m_render_frame = av_frame_alloc();
 }
 
@@ -29,8 +30,12 @@ bool SDLVideoDecoder::OpenStream(const std::string& url) {
     return m_stream_node->OpenStream(url);
 }
 
-void* SDLVideoDecoder::GetTexture() const noexcept {
-    const_cast<SDLVideoDecoder*>(this)->UpdateTexture();
+bool SDLVideoDecoder::IsConnected() const noexcept {
+    return m_stream_node->IsConnected();
+}
+
+void* SDLVideoDecoder::GetTexture() noexcept {
+    UpdateTexture();
     return m_texture;
 }
 
@@ -63,11 +68,13 @@ void SDLVideoDecoder::UpdateTexture() {
             m_render_frame->data[1], m_render_frame->linesize[1],
             m_render_frame->data[2], m_render_frame->linesize[2]
         );
+    } else {
+        av_log(nullptr, AV_LOG_WARNING, "[Decoder] Unsupported pixel format: %d. Use YUV420P for direct rendering.\n", m_render_frame->format);
     }
 }
 
-std::unique_ptr<IVideoDecoder> CreateVideoDecoder(SDL_Renderer* renderer) {
-    return std::make_unique<SDLVideoDecoder>(renderer);
+std::unique_ptr<IVideoDecoder> CreateVideoDecoder(SDL_Renderer* renderer, std::shared_ptr<network::IHttpClient> httpClient) {
+    return std::make_unique<SDLVideoDecoder>(renderer, std::move(httpClient));
 }
 
 } // namespace kvm::video
