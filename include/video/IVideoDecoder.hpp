@@ -43,6 +43,11 @@ public:
 
 
     /**
+     * @brief Checks if the stream is currently open and connected.
+     */
+    virtual bool IsConnected() const noexcept = 0;
+
+    /**
      * @brief Returns an opaque pointer to the decoded SDL_Texture (may be null
      *        until the first frame arrives).
      */

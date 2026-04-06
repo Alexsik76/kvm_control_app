@@ -15,7 +15,8 @@ public:
 
     void ProcessEvent(const SDL_Event* event);
     void NewFrame();
-    void Render(uint32_t stream_width, uint32_t stream_height, const std::string& current_url, bool& is_running);
+    void Render(uint32_t stream_width, uint32_t stream_height, const std::string& current_url, bool& is_running, 
+                bool video_connected, bool hid_connected, bool is_captured);
 
     // Update telemetry for debug display
     void UpdateLastKey(uint32_t scancode);

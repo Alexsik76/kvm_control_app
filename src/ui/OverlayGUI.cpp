@@ -34,17 +34,37 @@ void OverlayGUI::UpdateLastKey(uint32_t scancode) {
     m_lastKey = scancode;
 }
 
-void OverlayGUI::Render(uint32_t stream_width, uint32_t stream_height, const std::string& current_url, bool& is_running) {
+void OverlayGUI::Render(uint32_t stream_width, uint32_t stream_height, const std::string& current_url, bool& is_running, 
+                        bool video_connected, bool hid_connected, bool is_captured) {
     ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.6f);
     ImGui::Begin("KVM Status", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
 
-    if (stream_width > 0) {
-        ImGui::TextColored({0.2f, 1.0f, 0.2f, 1}, "[OK] Streaming");
-        ImGui::Text("Resolution : %ux%u", stream_width, stream_height);
+    if (is_captured) {
+        ImGui::TextColored({1.0f, 0.5f, 0.0f, 1}, "MOUSE CAPTURED");
+        ImGui::Text("Press [RIGHT CTRL] to release.");
+        ImGui::Separator();
+    }
+
+    // --- Video Status ---
+    if (video_connected) {
+        ImGui::TextColored({0.2f, 1.0f, 0.2f, 1}, "[OK] Video Connected");
+        if (stream_width > 0) {
+            ImGui::Text("Resolution : %ux%u", stream_width, stream_height);
+        } else {
+            ImGui::TextColored({1.0f, 0.8f, 0.2f, 1}, "[Wait] Initializing frame...");
+        }
     } else {
-        ImGui::TextColored({1.0f, 0.6f, 0.0f, 1}, "Waiting for stream...");
-        ImGui::Text("URL: %s", current_url.c_str());
+        ImGui::TextColored({1.0f, 0.4f, 0.4f, 1}, "[FAIL] Video Offline");
+        ImGui::Text("Connecting to: %s", current_url.c_str());
+    }
+
+    // --- HID Status ---
+    ImGui::Separator();
+    if (hid_connected) {
+        ImGui::TextColored({0.2f, 1.0f, 0.2f, 1}, "[OK] HID Controller Ready");
+    } else {
+        ImGui::TextColored({1.0f, 0.4f, 0.4f, 1}, "[FAIL] HID Offline");
     }
 
     ImGui::Separator();
@@ -60,7 +80,8 @@ void OverlayGUI::Render(uint32_t stream_width, uint32_t stream_height, const std
         ImGui::Text("Last Key: None");
     }
     
-    if (ImGui::Button("Exit")) {
+    ImGui::Spacing();
+    if (ImGui::Button("Exit Application")) {
         is_running = false;
     }
     ImGui::End();

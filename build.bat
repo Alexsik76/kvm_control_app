@@ -36,8 +36,21 @@ if %ERRORLEVEL% neq 0 (
 )
 
 :: Run Configuration
+echo [INFO] Checking vcpkg installation...
+if not exist "vcpkg\vcpkg.exe" (
+    echo [INFO] Bootstrapping vcpkg...
+    if not exist "vcpkg" (
+        git clone https://github.com/microsoft/vcpkg.git
+    )
+    call vcpkg\bootstrap-vcpkg.bat
+)
+
 echo [INFO] Running CMake Configuration...
 cmake --preset default
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Configuration failed.
+    exit /b 1
+)
 
 :: Run Build
 echo [INFO] Running CMake Build...

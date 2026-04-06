@@ -1,5 +1,6 @@
 #include "video/FFmpegStreamNode.hpp"
 #include <iostream>
+#include <chrono>
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -30,16 +31,26 @@ bool FFmpegStreamNode::Initialize() {
 
 bool FFmpegStreamNode::OpenStream(const std::string& url) {
     if (m_running) return false;
+    m_running = true;
+    m_connected = false;
+    m_last_error = "";
+    
+    m_open_thread = std::thread(&FFmpegStreamNode::OpenLoop, this, url);
+    return true;
+}
 
+void FFmpegStreamNode::OpenLoop(std::string url) {
     m_fmt_ctx = avformat_alloc_context();
-    if (!m_fmt_ctx) return false;
+    if (!m_fmt_ctx) {
+        m_last_error = "Could not allocate format context";
+        m_running = false;
+        return;
+    }
 
     m_fmt_ctx->interrupt_callback.callback = [](void* ctx) -> int {
         return static_cast<FFmpegStreamNode*>(ctx)->IsRunning() ? 0 : 1;
     };
     m_fmt_ctx->interrupt_callback.opaque = this;
-
-    m_running = true;
 
     AVDictionary* opts = nullptr;
     av_dict_set(&opts, "fflags", "nobuffer+discardcorrupt", 0);
@@ -47,18 +58,22 @@ bool FFmpegStreamNode::OpenStream(const std::string& url) {
     av_dict_set(&opts, "analyzeduration", "0", 0);
     av_dict_set(&opts, "probesize", "32", 0);
     av_dict_set(&opts, "buffer_size", "8388608", 0);
-    av_dict_set(&opts, "rtsp_transport", "tcp", 0);
+    av_dict_set(&opts, "rtsp_transport", "udp", 0);
+    av_dict_set(&opts, "stimeout", "5000000", 0); // 5 seconds timeout for socket
 
     int ret = avformat_open_input(&m_fmt_ctx, url.c_str(), nullptr, &opts);
     av_dict_free(&opts);
+    
     if (ret < 0) {
+        m_last_error = "Failed to open input: " + url;
         m_running = false;
-        return false;
+        return;
     }
 
     if (avformat_find_stream_info(m_fmt_ctx, nullptr) < 0) {
+        m_last_error = "Failed to find stream info";
         Cleanup();
-        return false;
+        return;
     }
 
     m_video_stream_idx = -1;
@@ -70,41 +85,46 @@ bool FFmpegStreamNode::OpenStream(const std::string& url) {
     }
 
     if (m_video_stream_idx == -1) {
+        m_last_error = "No video stream found";
         Cleanup();
-        return false;
+        return;
     }
 
     const AVCodec* codec = avcodec_find_decoder(m_fmt_ctx->streams[m_video_stream_idx]->codecpar->codec_id);
     if (!codec) {
+        m_last_error = "Codec not found";
         Cleanup();
-        return false;
+        return;
     }
 
     m_codec_ctx = avcodec_alloc_context3(codec);
     if (!m_codec_ctx) {
+        m_last_error = "Failed to allocate codec context";
         Cleanup();
-        return false;
+        return;
     }
 
     if (avcodec_parameters_to_context(m_codec_ctx, m_fmt_ctx->streams[m_video_stream_idx]->codecpar) < 0) {
+        m_last_error = "Failed to copy codec parameters";
         Cleanup();
-        return false;
+        return;
     }
 
     m_codec_ctx->thread_count = 4;
     m_codec_ctx->thread_type = FF_THREAD_SLICE | FF_THREAD_FRAME;
 
     if (avcodec_open2(m_codec_ctx, codec, nullptr) < 0) {
+        m_last_error = "Failed to open codec";
         Cleanup();
-        return false;
+        return;
     }
 
+    m_connected = true;
     m_decode_thread = std::thread(&FFmpegStreamNode::DecodeLoop, this);
-    return true;
 }
 
 void FFmpegStreamNode::DecodeLoop() {
-    while (m_running) {
+    while (m_running && m_connected) {
         int ret = av_read_frame(m_fmt_ctx, m_packet);
         if (ret == AVERROR(EAGAIN)) { 
             std::this_thread::sleep_for(std::chrono::milliseconds(1)); 
@@ -112,6 +132,7 @@ void FFmpegStreamNode::DecodeLoop() {
         }
         if (ret == AVERROR_EOF || ret < 0) { 
             if (!m_running) break;
+            // Attempt to reconnect after failure? For now just wait and exit if not running
             std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
             continue; 
         }
@@ -148,11 +169,15 @@ void FFmpegStreamNode::Flush() {
 
 void FFmpegStreamNode::Cleanup() {
     m_running = false;
+    m_connected = false;
     
+    if (m_open_thread.joinable()) m_open_thread.join();
     if (m_decode_thread.joinable()) m_decode_thread.join();
     
     if (m_fmt_ctx) avformat_close_input(&m_fmt_ctx);
     if (m_codec_ctx) avcodec_free_context(&m_codec_ctx);
+    m_fmt_ctx = nullptr;
+    m_codec_ctx = nullptr;
 }
 
 } // namespace kvm::video

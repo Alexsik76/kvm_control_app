@@ -22,6 +22,12 @@ public:
         if (sdlScancode == SDL_SCANCODE_BACKSPACE) return 0x2A;
         if (sdlScancode == SDL_SCANCODE_TAB) return 0x2B;
         if (sdlScancode == SDL_SCANCODE_SPACE) return 0x2C;
+        
+        // Arrow Keys
+        if (sdlScancode == SDL_SCANCODE_RIGHT) return 0x4F; // 79
+        if (sdlScancode == SDL_SCANCODE_LEFT) return 0x50;  // 80
+        if (sdlScancode == SDL_SCANCODE_DOWN) return 0x51;  // 81
+        if (sdlScancode == SDL_SCANCODE_UP) return 0x52;    // 82
 
         return 0; // Unknown or unmapped
     }

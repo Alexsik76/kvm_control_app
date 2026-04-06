@@ -1,0 +1,13 @@
+server:
+  host: "pi4.lab.vn.ua"
+  node_id: "cab2e9b3-318e-43d4-96e9-c9511ac3b889"
+  video:
+    proto: "webrtc"
+    host: "pi4.lab.vn.ua"
+    port: 443
+    path: "/api/v1/nodes/cab2e9b3-318e-43d4-96e9-c9511ac3b889/signal/offer"
+  hid:
+    host: "pi4.lab.vn.ua"
+    proto: "wss"
+    port: 443
+    path: "/ws/control" # Повертаємо шлях, який працював

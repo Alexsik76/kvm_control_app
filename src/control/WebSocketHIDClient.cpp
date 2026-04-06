@@ -57,9 +57,9 @@ public:
         }
         keysStr += "]";
 
-        char buffer[256];
+        char buffer[384];
         int len = snprintf(buffer, sizeof(buffer),
-            "{\"type\":\"keyboard\",\"modifiers\":%u,\"keys\":%s}",
+            "{\"type\":\"keyboard\",\"data\":{\"modifiers\":%u,\"keys\":%s}}",
             event.modifiers, keysStr.c_str());
 
         if (len > 0) {
@@ -70,9 +70,9 @@ public:
     void SendMouseEvent(const common::MouseEvent& event) override {
         if (!m_connected) return;
 
-        char buffer[128];
+        char buffer[256];
         int len = snprintf(buffer, sizeof(buffer),
-            "{\"type\":\"mouse\",\"buttons\":%u,\"x\":%d,\"y\":%d,\"wheel\":%d}",
+            "{\"type\":\"mouse\",\"data\":{\"buttons\":%u,\"x\":%d,\"y\":%d,\"wheel\":%d}}",
             event.buttons, event.deltaX, event.deltaY, event.wheel);
         
         if (len > 0) {

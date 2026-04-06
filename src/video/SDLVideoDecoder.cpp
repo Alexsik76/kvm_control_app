@@ -1,5 +1,5 @@
 #include "video/SDLVideoDecoder.hpp"
-#include "video/FFmpegStreamNode.hpp"
+#include "video/WebRTCStreamNode.hpp"
 #include <SDL3/SDL.h>
 #include <iostream>
 
@@ -13,7 +13,7 @@ namespace kvm::video {
 
 SDLVideoDecoder::SDLVideoDecoder(SDL_Renderer* renderer)
     : m_renderer(renderer) {
-    m_stream_node = std::make_unique<FFmpegStreamNode>();
+    m_stream_node = std::make_unique<WebRTCStreamNode>();
     m_render_frame = av_frame_alloc();
 }
 
@@ -28,6 +28,10 @@ bool SDLVideoDecoder::Initialize() {
 
 bool SDLVideoDecoder::OpenStream(const std::string& url) {
     return m_stream_node->OpenStream(url);
+}
+
+bool SDLVideoDecoder::IsConnected() const noexcept {
+    return m_stream_node->IsConnected();
 }
 
 void* SDLVideoDecoder::GetTexture() noexcept {

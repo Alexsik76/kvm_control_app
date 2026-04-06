@@ -1,0 +1,28 @@
+imgui[sdl3-binding]                       Make available SDL3 binding
+imgui[sdl3-renderer-binding]              Make available SDL3 Renderer binding
+sdl3                     3.4.2#1          Simple DirectMedia Layer is a cross-platform development library designed ...
+sdl3[alsa]                                Support for alsa audio
+sdl3[dbus]                                Build with D-Bus support
+sdl3[emscripten-pthreads]                 Build Emscripten pthreads support
+sdl3[ibus]                                Build with ibus IME support
+sdl3[vulkan]                              Vulkan functionality for SDL
+sdl3[wayland]                             Build with Wayland support
+sdl3[x11]                                 Build with X11 support
+sdl3-image               3.4.0            SDL_image is an image file loading library. It loads images as SDL surface...
+sdl3-image[jpeg]                          Support for JPEG image format
+sdl3-image[png]                           Support for PNG image format
+sdl3-image[tiff]                          Support for TIFF image format
+sdl3-image[webp]                          Support for WEBP image format.
+sdl3-mixer               3.2.0#1          An audio mixer that supports various file formats for Simple Directmedia L...
+sdl3-mixer[fluidsynth]                    Use FluidSynth to play MIDI audio format.
+sdl3-mixer[libflac]                       Use libflac to play FLAC audio format.
+sdl3-mixer[libvorbis]                     Use libvorbis to play Vorbis audio format.
+sdl3-mixer[libxmp]                        Use libxmp to open MOD files.
+sdl3-mixer[mpg123]                        Use mpg123 to play MP3 audio format.
+sdl3-mixer[opusfile]                      Use opusfile to play Opus audio format.
+sdl3-mixer[wavpack]                       Use wavpack to play WAV audio format.
+sdl3-shadercross         3.0.0-preview1   This is a library for translating shaders to different formats, intended f...
+sdl3-ttf                 3.2.2#1          A library for rendering TrueType fonts with SDL
+sdl3-ttf[harfbuzz]                        Enable HarfBuzz support
+sdl3-ttf[svg]                             Enable plutosvg for color emoji support
+tgui[sdl3]                                Build the SDL3 backend

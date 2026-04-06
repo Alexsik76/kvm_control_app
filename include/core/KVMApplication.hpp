@@ -6,7 +6,7 @@
 
 // Forward declarations
 namespace kvm::video { class IVideoDecoder; }
-namespace kvm::control { class IInputCapturer; class IHIDClient; }
+namespace kvm::control { class IInputCapturer; class IHIDClient; class IEventMapper; }
 namespace kvm::ui { class OverlayGUI; }
 
 namespace kvm::core {
@@ -38,10 +38,12 @@ private:
     std::unique_ptr<video::IVideoDecoder> m_videoModule;
     std::unique_ptr<control::IInputCapturer> m_inputCapturer;
     std::unique_ptr<control::IHIDClient> m_hidModule;
+    std::unique_ptr<control::IEventMapper> m_eventMapper;
     std::unique_ptr<ui::OverlayGUI> m_uiModule;
 
     std::string m_streamUrl;
     bool m_running = true;
+    bool m_isCaptured = false;
 };
 
 } // namespace kvm::core

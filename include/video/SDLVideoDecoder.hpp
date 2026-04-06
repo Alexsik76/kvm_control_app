@@ -9,7 +9,7 @@ struct AVFrame;
 
 namespace kvm::video {
 
-class FFmpegStreamNode;
+class WebRTCStreamNode;
 
 class SDLVideoDecoder : public IVideoDecoder {
 public:
@@ -18,6 +18,7 @@ public:
 
     bool Initialize() override;
     bool OpenStream(const std::string& url) override;
+    bool IsConnected() const noexcept override;
     void* GetTexture() noexcept override;
     void Flush() noexcept override;
 
@@ -32,7 +33,7 @@ private:
     uint32_t m_width = 0;
     uint32_t m_height = 0;
 
-    std::unique_ptr<FFmpegStreamNode> m_stream_node;
+    std::unique_ptr<WebRTCStreamNode> m_stream_node;
     AVFrame* m_render_frame = nullptr;
 };
 

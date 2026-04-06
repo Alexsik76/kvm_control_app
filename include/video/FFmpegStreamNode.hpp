@@ -24,8 +24,11 @@ public:
     bool GetLatestFrame(AVFrame* dest_frame);
     void Flush();
     bool IsRunning() const { return m_running.load(); }
+    bool IsConnected() const { return m_connected.load(); }
+    const std::string& GetLastError() const { return m_last_error; }
 
 private:
+    void OpenLoop(std::string url);
     void DecodeLoop();
     void Cleanup();
 
@@ -34,8 +37,11 @@ private:
     AVFrame* m_frame = nullptr;
     AVPacket* m_packet = nullptr;
 
+    std::thread m_open_thread;
     std::thread m_decode_thread;
     std::atomic<bool> m_running{false};
+    std::atomic<bool> m_connected{false};
+    std::string m_last_error;
     
     std::mutex m_frame_mutex;
     AVFrame* m_shared_frame = nullptr;
