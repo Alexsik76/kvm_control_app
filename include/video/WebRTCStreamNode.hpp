@@ -1,5 +1,7 @@
 #pragma once
 
+#include "network/IHttpClient.hpp"
+#include "video/RtpDepacketizer.hpp"
 #include <string>
 #include <memory>
 #include <atomic>
@@ -21,7 +23,7 @@ namespace kvm::video {
 
 class WebRTCStreamNode {
 public:
-    WebRTCStreamNode();
+    explicit WebRTCStreamNode(std::shared_ptr<network::IHttpClient> httpClient);
     ~WebRTCStreamNode();
 
     bool Initialize();
@@ -56,6 +58,7 @@ private:
     std::mutex m_iceMutex;
 
     std::shared_ptr<rtc::PeerConnection> m_peerConnection;
+    std::shared_ptr<rtc::Track> m_videoTrack;
     std::thread m_signalingThread;
     
     // FFmpeg Decoding
@@ -66,6 +69,9 @@ private:
     std::mutex m_frameMutex;
     AVFrame* m_sharedFrame = nullptr;
     bool m_hasNewFrame = false;
+
+    std::shared_ptr<network::IHttpClient> m_httpClient;
+    RtpDepacketizer m_depacketizer;
 };
 
 } // namespace kvm::video

@@ -19,8 +19,9 @@ find_package(FFMPEG REQUIRED)
 add_executable(${PROJECT_NAME} 
     src/main.cpp
     src/core/KVMApplication.cpp
+    src/network/WinHttpClient.cpp
+    src/video/RtpDepacketizer.cpp
     src/video/WebRTCStreamNode.cpp
-    src/video/FFmpegStreamNode.cpp
     src/video/SDLVideoDecoder.cpp
     src/ui/OverlayGUI.cpp
     src/control/SDLInputCapturer.cpp

@@ -1,4 +1,5 @@
 #pragma once
+
 #include "video/IVideoDecoder.hpp"
 #include <memory>
 #include <string>
@@ -13,7 +14,7 @@ class WebRTCStreamNode;
 
 class SDLVideoDecoder : public IVideoDecoder {
 public:
-    explicit SDLVideoDecoder(SDL_Renderer* renderer);
+    explicit SDLVideoDecoder(SDL_Renderer* renderer, std::shared_ptr<network::IHttpClient> httpClient);
     ~SDLVideoDecoder() override;
 
     bool Initialize() override;

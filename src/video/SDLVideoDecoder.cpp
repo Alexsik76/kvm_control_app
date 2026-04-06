@@ -11,9 +11,9 @@ extern "C" {
 
 namespace kvm::video {
 
-SDLVideoDecoder::SDLVideoDecoder(SDL_Renderer* renderer)
+SDLVideoDecoder::SDLVideoDecoder(SDL_Renderer* renderer, std::shared_ptr<network::IHttpClient> httpClient)
     : m_renderer(renderer) {
-    m_stream_node = std::make_unique<WebRTCStreamNode>();
+    m_stream_node = std::make_unique<WebRTCStreamNode>(std::move(httpClient));
     m_render_frame = av_frame_alloc();
 }
 
@@ -73,8 +73,8 @@ void SDLVideoDecoder::UpdateTexture() {
     }
 }
 
-std::unique_ptr<IVideoDecoder> CreateVideoDecoder(SDL_Renderer* renderer) {
-    return std::make_unique<SDLVideoDecoder>(renderer);
+std::unique_ptr<IVideoDecoder> CreateVideoDecoder(SDL_Renderer* renderer, std::shared_ptr<network::IHttpClient> httpClient) {
+    return std::make_unique<SDLVideoDecoder>(renderer, std::move(httpClient));
 }
 
 } // namespace kvm::video

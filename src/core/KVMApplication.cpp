@@ -4,6 +4,7 @@
 #include "control/IHIDClient.hpp"
 #include "control/IEventMapper.hpp"
 #include "ui/OverlayGUI.hpp"
+#include "network/WinHttpClient.hpp"
 #include <ixwebsocket/IXNetSystem.h>
 #include <iostream>
 #include <imgui.h>
@@ -45,8 +46,11 @@ bool KVMApplication::Initialize(const std::string& streamUrl, const std::string&
     m_renderer = SDL_CreateRenderer(m_window, nullptr);
     if (!m_renderer) return false;
 
+    // 0. Initialize Network
+    auto httpClient = std::make_shared<network::WinHttpClient>();
+
     // 1. Initialize Video Module
-    m_videoModule = video::CreateVideoDecoder(m_renderer);
+    m_videoModule = video::CreateVideoDecoder(m_renderer, httpClient);
     if (!m_videoModule->Initialize()) return false;
     m_videoModule->OpenStream(streamUrl);
 

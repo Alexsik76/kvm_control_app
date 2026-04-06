@@ -1,18 +1,12 @@
-бачу в цьому файлі дві проблеми: одну синтаксичну і одну архітектурну.
+Refactor the architecture of `WebRTCStreamNode.cpp` and `SDLVideoDecoder.cpp` to strictly adhere to SOLID principles, specifically the Single Responsibility Principle (SRP) and Dependency Inversion Principle (DIP).
 
-1. Забутий лінк для cpp-httplib
-Ти завантажив бібліотеку через FetchContent, але не додав її до target_link_libraries. Додай httplib::httplib:
+Required Tasks:
+1. Extract the HTTP network logic (`SendWinHttpPost`) from `WebRTCStreamNode.cpp` into a new abstract interface `IHttpClient` (e.g., virtual method `Post(...)`).
+2. Create a concrete class `WinHttpClient` that implements `IHttpClient` using the existing WinHTTP API logic. Handle all Windows-specific headers and `#ifdef _WIN32` directives inside this new class only.
+3. Apply Dependency Injection: Modify `WebRTCStreamNode` to accept an instance of `IHttpClient` (e.g., via `std::shared_ptr<IHttpClient>`) instead of making direct HTTP calls.
+4. Clean up `WebRTCStreamNode.cpp` by removing all direct WinHTTP includes and network utility functions.
 
-CMake
- target_link_libraries(${PROJECT_NAME} PRIVATE 
-     SDL3::SDL3
-     ixwebsocket::ixwebsocket
-     nlohmann_json::nlohmann_json
-     yaml-cpp
-     httplib::httplib
-     d3d11.lib
-2. Архітектурна пастка з HTTPS (Критично)
-Твій Python-бекенд працює через Cloudflare по захищеному протоколу https://pi4.lab.vn.ua/api/....
-Бібліотека cpp-httplib здатна робити HTTPS-запити тільки якщо її скомпілювати з OpenSSL. Але ми щойно примусово вимкнули OpenSSL для libdatachannel та ixwebsocket, щоб зменшити розмір бінарників, і перейшли на MbedTLS.
-
-Якщо підключити OpenSSL назад лише заради сигналізації, втрачається весь сенс економії. Можливо, варто відмовитися від cpp-httplib і зробити ці два HTTP-запити (Offer/Answer) через вбудовані у Windows API (WinHTTP або WinINet), які підтримують HTTPS "з коробки" і не потребують зовнішніх бібліотек?
+Constraints:
+- Use standard C++17/C++20 features.
+- Provide only the code changes with up to 5 lines of context around the modifications. Do not output the entire files unless explicitly asked.
+- Never use the Ukrainian language for code comments in your output.
