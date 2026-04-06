@@ -9,6 +9,8 @@
 #include <vector>
 #include <functional>
 #include <thread>
+#include <queue>
+#include <condition_variable>
 
 struct AVFrame;
 struct AVCodecContext;
@@ -44,6 +46,7 @@ private:
     void Cleanup();
     void StartSignaling(std::string signalingUrl);
     void SendIceCandidate(const std::string& signalingUrl, const std::string& candidateSdp);
+    void DecodeLoop();
 
     // FFmpeg context for decoding H.264 NAL units from WebRTC
     bool SetupDecoder();
@@ -69,6 +72,12 @@ private:
     std::mutex m_frameMutex;
     AVFrame* m_sharedFrame = nullptr;
     bool m_hasNewFrame = false;
+
+    // Producer-Consumer for decoding
+    std::queue<std::vector<uint8_t>> m_packetQueue;
+    std::mutex m_queueMutex;
+    std::condition_variable m_queueCondVar;
+    std::thread m_decodeWorker;
 
     std::shared_ptr<network::IHttpClient> m_httpClient;
     RtpDepacketizer m_depacketizer;

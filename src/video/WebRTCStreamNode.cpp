@@ -36,7 +36,7 @@ bool WebRTCStreamNode::SetupDecoder() {
     if (!m_codecCtx) return false;
     m_codecCtx->flags |= AV_CODEC_FLAG_LOW_DELAY;
     m_codecCtx->flags2 |= AV_CODEC_FLAG2_CHUNKS;
-    m_codecCtx->thread_count = 1;
+    m_codecCtx->thread_count = 4;
     if (avcodec_open2(m_codecCtx, codec, nullptr) < 0) {
         avcodec_free_context(&m_codecCtx);
         return false;
@@ -47,6 +47,7 @@ bool WebRTCStreamNode::SetupDecoder() {
 bool WebRTCStreamNode::OpenStream(const std::string& signalingUrl) {
     if (m_running) return false;
     m_running = true;
+    m_decodeWorker = std::thread(&WebRTCStreamNode::DecodeLoop, this);
     m_signalingThread = std::thread(&WebRTCStreamNode::StartSignaling, this, signalingUrl);
     return true;
 }
@@ -55,7 +56,13 @@ void WebRTCStreamNode::DecodeVideoData(const uint8_t* data, size_t size) {
     if (!m_codecCtx || !m_running) return;
     m_packet->data = const_cast<uint8_t*>(data);
     m_packet->size = static_cast<int>(size);
-    if (avcodec_send_packet(m_codecCtx, m_packet) < 0) return;
+    int ret = avcodec_send_packet(m_codecCtx, m_packet);
+    if (ret < 0) {
+        char errbuf[256];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        std::cerr << "[Decoder] avcodec_send_packet error: " << errbuf << std::endl;
+        return;
+    }
     while (avcodec_receive_frame(m_codecCtx, m_frame) >= 0) {
         if (m_frame->width > 0 && m_frame->height > 0) {
             std::lock_guard<std::mutex> lock(m_frameMutex);
@@ -80,13 +87,20 @@ void WebRTCStreamNode::Flush() { if (m_codecCtx) avcodec_flush_buffers(m_codecCt
 
 void WebRTCStreamNode::Cleanup() {
     m_running = false;
+    m_queueCondVar.notify_all();
+
     if (m_peerConnection) { m_peerConnection->close(); m_peerConnection.reset(); }
     if (m_signalingThread.joinable()) m_signalingThread.join();
+    if (m_decodeWorker.joinable()) m_decodeWorker.join();
+
     if (m_codecCtx) avcodec_free_context(&m_codecCtx);
     if (m_sharedFrame) av_frame_free(&m_sharedFrame);
     if (m_frame) av_frame_free(&m_frame);
     if (m_packet) av_packet_free(&m_packet);
     m_hasNewFrame = false;
+
+    std::lock_guard<std::mutex> lock(m_queueMutex);
+    std::queue<std::vector<uint8_t>>().swap(m_packetQueue);
 }
 
 void WebRTCStreamNode::StartSignaling(std::string signalingUrl) {
@@ -102,23 +116,22 @@ void WebRTCStreamNode::StartSignaling(std::string signalingUrl) {
         }
     });
 
-    m_peerConnection->onTrack([this](std::shared_ptr<rtc::Track> track) {
-        std::cout << "[WebRTC] Track received: " << track->mid() << std::endl;
-        track->onMessage([this](rtc::message_variant data) {
-            if (std::holds_alternative<rtc::binary>(data)) {
-                const auto& bin = std::get<rtc::binary>(data);
-                auto bitstream = m_depacketizer.ProcessPayload(reinterpret_cast<const uint8_t*>(bin.data()), bin.size());
-                if (!bitstream.empty()) {
-                    DecodeVideoData(bitstream.data(), bitstream.size());
-                }
-            }
-        });
-    });
-
     // CRITICAL: Setup H.264 codec parameters for MediaMTX compatibility
     auto video = rtc::Description::Video("video", rtc::Description::Direction::RecvOnly);
-    video.addH264Codec(96, "packetization-mode=1;profile-level-id=42e01f");
+    video.addH264Codec(96, "packetization-mode=1;profile-level-id=42e028");
     m_videoTrack = m_peerConnection->addTrack(video);
+
+    m_videoTrack->onMessage([this](rtc::message_variant data) {
+        if (std::holds_alternative<rtc::binary>(data)) {
+            const auto& bin = std::get<rtc::binary>(data);
+            auto bitstream = m_depacketizer.ProcessPayload(reinterpret_cast<const uint8_t*>(bin.data()), bin.size());
+            if (!bitstream.empty()) {
+                std::lock_guard<std::mutex> lock(m_queueMutex);
+                m_packetQueue.push(std::move(bitstream));
+                m_queueCondVar.notify_one();
+            }
+        }
+    });
 
     m_peerConnection->onLocalCandidate([this, signalingUrl](const rtc::Candidate& candidate) {
         std::lock_guard<std::mutex> lock(m_iceMutex);
@@ -150,13 +163,36 @@ void WebRTCStreamNode::StartSignaling(std::string signalingUrl) {
 }
 
 void WebRTCStreamNode::SendIceCandidate(const std::string& signalingUrl, const std::string& candidateSdp) {
-    json iceJson = {{"candidate", candidateSdp}, {"sdpMid", "video"}, {"session_url", m_sessionUrl}};
+    json iceJson = {
+        {"candidate", candidateSdp}, 
+        {"sdpMid", "0"}, 
+        {"sdpMLineIndex", 0},
+        {"session_url", m_sessionUrl}
+    };
     std::string icePath = signalingUrl;
     size_t offerPos = icePath.rfind("/offer");
     if (offerPos != std::string::npos) {
         icePath.replace(offerPos, 6, "/ice");
         std::string unused;
         if (m_httpClient) m_httpClient->Post(icePath, iceJson.dump(), unused);
+    }
+}
+
+void WebRTCStreamNode::DecodeLoop() {
+    while (m_running) {
+        std::vector<uint8_t> data;
+        {
+            std::unique_lock<std::mutex> lock(m_queueMutex);
+            m_queueCondVar.wait(lock, [this] { return !m_running || !m_packetQueue.empty(); });
+            if (!m_running && m_packetQueue.empty()) break;
+            if (!m_packetQueue.empty()) {
+                data = std::move(m_packetQueue.front());
+                m_packetQueue.pop();
+            }
+        }
+        if (!data.empty()) {
+            DecodeVideoData(data.data(), data.size());
+        }
     }
 }
 

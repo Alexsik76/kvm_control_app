@@ -16,6 +16,7 @@ int main() {
             if (config["server"]) {
                 auto srv = config["server"];
                 std::string globalHost = srv["host"] ? srv["host"].as<std::string>() : "kvm-api.lab.vn.ua";
+                std::string node_id = srv["node_id"] ? srv["node_id"].as<std::string>() : "cab2e9b3-318e-43d4-96e9-c9511ac3b889";
 
                 if (srv["video"]) {
                     auto v = srv["video"];
@@ -27,10 +28,9 @@ int main() {
 
                 if (srv["hid"]) {
                     auto h = srv["hid"];
-                    std::string host = h["host"] ? h["host"].as<std::string>() : "pi4.lab.vn.ua";
-                    std::string path = h["path"] ? h["path"].as<std::string>() : "/ws/control";
+                    std::string host = h["host"] ? h["host"].as<std::string>() : globalHost;
+                    std::string path = h["path"] ? h["path"].as<std::string>() : std::format("/api/v1/nodes/{}/ws", node_id);
                     hidUrl = std::format("wss://{}{}", host, path);
-                    // For HID, we also need token in query param according to README_API.md
                     if (srv["video"]["token"]) {
                          hidUrl += std::format("?token={}", srv["video"]["token"].as<std::string>());
                     }
@@ -41,8 +41,8 @@ int main() {
         std::cerr << "[Config] Error: " << e.what() << "\n";
     }
 
-    if (streamUrl.empty()) streamUrl = "https://kvm-api.lab.vn.ua/api/v1/nodes/cab2e9b3-318e-43d4-96e9-c9511ac3b889/signal/offer";
-    if (hidUrl.empty()) hidUrl = "wss://pi4.lab.vn.ua/ws/control";
+    if (streamUrl.empty()) streamUrl = std::format("https://kvm-api.lab.vn.ua/api/v1/nodes/cab2e9b3-318e-43d4-96e9-c9511ac3b889/signal/offer");
+    if (hidUrl.empty()) hidUrl = "wss://kvm-api.lab.vn.ua/api/v1/nodes/cab2e9b3-318e-43d4-96e9-c9511ac3b889/ws";
 
     std::cout << "[App] Video URL: " << streamUrl << "\n";
     std::cout << "[App] HID URL:   " << hidUrl << "\n";

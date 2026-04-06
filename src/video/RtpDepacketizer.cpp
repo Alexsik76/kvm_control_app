@@ -4,9 +4,34 @@
 
 namespace kvm::video {
 
-std::vector<uint8_t> RtpDepacketizer::ProcessPayload(const uint8_t* payload, size_t size) {
-    if (size < 1) return {};
+std::vector<uint8_t> RtpDepacketizer::ProcessPayload(const uint8_t* rtpPacket, size_t rtpSize) {
+    if (rtpSize < 12) return {};
 
+    // --- RTP Header Parsing (RFC 3550) ---
+    uint8_t firstByte = rtpPacket[0];
+    uint8_t version = (firstByte >> 6) & 0x03;
+    bool hasExtension = (firstByte & 0x10) != 0;
+    uint8_t csrcCount = firstByte & 0x0F;
+
+    if (version != 2) return {}; // Support only RTP v2
+
+    size_t headerSize = 12 + (csrcCount * 4);
+    if (rtpSize < headerSize) return {};
+
+    if (hasExtension) {
+        size_t extOffset = headerSize;
+        if (rtpSize < extOffset + 4) return {};
+        // Extension length is in 32-bit words, following the 2-byte ID and 2-byte length
+        uint16_t extLen = (rtpPacket[extOffset + 2] << 8) | rtpPacket[extOffset + 3];
+        headerSize += 4 + (extLen * 4);
+    }
+
+    if (rtpSize <= headerSize) return {};
+
+    const uint8_t* payload = rtpPacket + headerSize;
+    size_t size = rtpSize - headerSize;
+
+    // --- H.264 Payload Processing (RFC 6184) ---
     uint8_t nalHeader = payload[0];
     uint8_t nalType = nalHeader & 0x1F;
 

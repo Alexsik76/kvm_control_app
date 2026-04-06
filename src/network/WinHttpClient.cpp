@@ -19,6 +19,8 @@ bool WinHttpClient::Post(const std::string& url, const std::string& body, std::s
         token = cleanUrl.substr(tokenPos + 6);
         size_t ampPos = token.find('&');
         if (ampPos != std::string::npos) token = token.substr(0, ampPos);
+        
+        // Remove token from URL for API calls as per README_API.md
         size_t startRemove = tokenPos > 0 && (cleanUrl[tokenPos-1] == '?' || cleanUrl[tokenPos-1] == '&') ? tokenPos - 1 : tokenPos;
         size_t endRemove = (ampPos != std::string::npos) ? tokenPos + 6 + ampPos : cleanUrl.length();
         cleanUrl.erase(startRemove, endRemove - startRemove);

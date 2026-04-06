@@ -1,12 +1,10 @@
-Refactor the architecture of `WebRTCStreamNode.cpp` and `SDLVideoDecoder.cpp` to strictly adhere to SOLID principles, specifically the Single Responsibility Principle (SRP) and Dependency Inversion Principle (DIP).
+The video packets are arriving, but `RtpDepacketizer::ProcessPayload` returns empty vectors because it treats the raw RTP packet as the H.264 payload. `libdatachannel`'s `track->onMessage` delivers the full RTP packet including the 12+ byte RTP header, so byte 0 is the RTP version (`0x80` or `0x90`), not a NAL header.
 
-Required Tasks:
-1. Extract the HTTP network logic (`SendWinHttpPost`) from `WebRTCStreamNode.cpp` into a new abstract interface `IHttpClient` (e.g., virtual method `Post(...)`).
-2. Create a concrete class `WinHttpClient` that implements `IHttpClient` using the existing WinHTTP API logic. Handle all Windows-specific headers and `#ifdef _WIN32` directives inside this new class only.
-3. Apply Dependency Injection: Modify `WebRTCStreamNode` to accept an instance of `IHttpClient` (e.g., via `std::shared_ptr<IHttpClient>`) instead of making direct HTTP calls.
-4. Clean up `WebRTCStreamNode.cpp` by removing all direct WinHTTP includes and network utility functions.
-
-Constraints:
-- Use standard C++17/C++20 features.
-- Provide only the code changes with up to 5 lines of context around the modifications. Do not output the entire files unless explicitly asked.
-- Never use the Ukrainian language for code comments in your output.
+Task: 
+1. Update `RtpDepacketizer.cpp` to parse and skip the RTP header.
+   - Validate the RTP version (V=2).
+   - Calculate the RTP header length: base 12 bytes + CSRC count (CC * 4).
+   - Check for the extension bit (X). If set, read the extension header length and skip it.
+   - Adjust the `payload` pointer and `size` to point to the actual H.264 payload.
+   - Keep the existing H.264 NAL unit processing logic (Single NAL, STAP-A, FU-A) for the adjusted payload.
+2. In `WebRTCStreamNode::DecodeVideoData`, add error logging using `std::cerr` if `avcodec_send_packet` returns a value less than 0, to ensure we catch any further decoder issues.
