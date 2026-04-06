@@ -1,9 +1,33 @@
-To avoid manual token copying, the application must automatically fetch a JWT access token from the backend API on startup.
+Переконайтеся, що після m_inputCapturer->SetWindow(...) залишилася прив'язка колбеків до HID-модуля. Агент міг їх випадково видалити.
 
-Task: Implement a machine-to-machine authentication step before establishing the WebRTC and WebSocket connections (e.g., inside `KVMApplication::Start` or similar initialization method).
+C++
+m_inputCapturer->SetKeyboardCallback([this](const auto& ev) { 
+    // ... (логіка клавіатури)
+    m_hidModule->SendKeyboardEvent(hidEvent); 
+});
 
-1. Read authentication parameters from `config.yaml` (e.g., `auth.login_url`, `auth.username`, and `auth.password`).
-2. Use the existing `IHttpClient` to send a POST request to `login_url`. Send the credentials as a JSON payload: `{"username": "<user>", "password": "<pass>"}` (or `application/x-www-form-urlencoded` if standard for your backend).
-3. Parse the JSON response to extract the `access_token` string.
-4. Dynamically append `?token=<access_token>` to the WebRTC signaling URL and WebSocket HID URL.
-5. If the token fetch fails, log an error to `std::cerr` and halt initialization.
+m_inputCapturer->SetMouseCallback([this](const auto& ev) { 
+    // Це найголовніше для миші!
+    m_hidModule->SendMouseEvent(ev); 
+});
+2. Втрачена передача подій в HandleEvents
+Щоб миша працювала, сирі події SDL повинні долітати до m_inputCapturer. Перевірте цикл обробки подій у KVMApplication::HandleEvents:
+
+C++
+if (m_isCaptured) {
+    // ... (обробка RCTRL для виходу) ...
+
+    // Цей рядок міг зникнути!
+    m_inputCapturer->ProcessEvent(&ev); 
+}
+3. Проблема з фокусом (SDL_SetRelativeMouseMode)
+Оскільки InputCapturer був створений без вікна, його внутрішній метод захоплення миші міг зламатися. Якщо у вас в InputCapturer є метод SetCaptureEnabled(bool), він використовує вікно:
+
+C++
+// Переконайтеся, що виклик захоплення все ще є при кліку:
+if (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+    // ...
+    m_isCaptured = true;
+    m_inputCapturer->SetCaptureEnabled(true); 
+    // ...
+}

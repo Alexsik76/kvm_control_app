@@ -17,24 +17,35 @@ public:
     ~KVMApplication();
 
     /**
-     * @brief Initialize all systems (SDL, Video, HID, UI).
+     * @brief Initialize with injected dependencies.
      */
-    bool Initialize(const std::string& streamUrl, const std::string& hidUrl);
+    bool Initialize(
+        const std::string& streamUrl,
+        const std::string& hidUrl,
+        std::unique_ptr<video::IVideoDecoder> videoModule,
+        std::unique_ptr<control::IInputCapturer> inputCapturer,
+        std::unique_ptr<control::IHIDClient> hidModule,
+        std::unique_ptr<control::IEventMapper> eventMapper
+    );
 
     /**
      * @brief Run the main application loop.
      */
     void Run();
 
+    SDL_Renderer* GetRenderer() const { return m_renderer.get(); }
+    SDL_Window* GetWindow() const { return m_window.get(); }
+
 private:
     void HandleEvents();
     void Render();
 
 private:
-    SDL_Window* m_window = nullptr;
-    SDL_Renderer* m_renderer = nullptr;
+    // RAII for SDL resources
+    std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> m_window;
+    std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> m_renderer;
 
-    // Independent Modules
+    // Injected Modules
     std::unique_ptr<video::IVideoDecoder> m_videoModule;
     std::unique_ptr<control::IInputCapturer> m_inputCapturer;
     std::unique_ptr<control::IHIDClient> m_hidModule;

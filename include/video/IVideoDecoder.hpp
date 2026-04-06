@@ -18,6 +18,7 @@ public:
     virtual ~IVideoDecoder() = default;
 
     virtual bool Initialize() = 0;
+    virtual void SetRenderer(SDL_Renderer* renderer) = 0;
     virtual bool OpenStream(const std::string& url) = 0;
     virtual bool IsConnected() const noexcept = 0;
     virtual void* GetTexture() noexcept = 0;

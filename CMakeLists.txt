@@ -18,6 +18,7 @@ find_package(FFMPEG REQUIRED)
 # --- Source Files ---
 add_executable(${PROJECT_NAME} 
     src/main.cpp
+    src/core/AppConfig.cpp
     src/core/KVMApplication.cpp
     src/network/WinHttpClient.cpp
     src/video/RtpDepacketizer.cpp

@@ -18,6 +18,7 @@ public:
     ~SDLVideoDecoder() override;
 
     bool Initialize() override;
+    void SetRenderer(SDL_Renderer* renderer) override;
     bool OpenStream(const std::string& url) override;
     bool IsConnected() const noexcept override;
     void* GetTexture() noexcept override;

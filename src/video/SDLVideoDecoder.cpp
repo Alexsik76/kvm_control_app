@@ -23,7 +23,12 @@ SDLVideoDecoder::~SDLVideoDecoder() {
 }
 
 bool SDLVideoDecoder::Initialize() {
+    av_log_set_level(AV_LOG_ERROR);
     return m_stream_node->Initialize();
+}
+
+void SDLVideoDecoder::SetRenderer(SDL_Renderer* renderer) {
+    m_renderer = renderer;
 }
 
 bool SDLVideoDecoder::OpenStream(const std::string& url) {

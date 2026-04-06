@@ -14,6 +14,8 @@ public:
     void SetKeyboardCallback(KeyboardCallback cb) override { m_kbCallback = std::move(cb); }
     void SetMouseCallback(MouseCallback cb) override { m_mouseCallback = std::move(cb); }
 
+    void SetWindow(SDL_Window* window) override { m_window = window; }
+
     void ProcessEvent(const void* sdlEvent) override {
         const SDL_Event& ev = *static_cast<const SDL_Event*>(sdlEvent);
         

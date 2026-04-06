@@ -26,6 +26,11 @@ public:
     virtual void SetMouseCallback(MouseCallback cb) = 0;
 
     /**
+     * @brief Sets the SDL window for input capture.
+     */
+    virtual void SetWindow(SDL_Window* window) = 0;
+
+    /**
      * @brief Processes a single SDL event.
      */
     virtual void ProcessEvent(const void* sdlEvent) = 0;
