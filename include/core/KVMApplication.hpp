@@ -9,6 +9,8 @@ namespace kvm::video { class IVideoDecoder; }
 namespace kvm::control { class IInputCapturer; class IHIDClient; class IEventMapper; }
 namespace kvm::ui { class OverlayGUI; }
 
+namespace kvm::network { class ILauncherClient; }
+
 namespace kvm::core {
 
 class KVMApplication {
@@ -25,7 +27,8 @@ public:
         std::unique_ptr<video::IVideoDecoder> videoModule,
         std::unique_ptr<control::IInputCapturer> inputCapturer,
         std::unique_ptr<control::IHIDClient> hidModule,
-        std::unique_ptr<control::IEventMapper> eventMapper
+        std::unique_ptr<control::IEventMapper> eventMapper,
+        network::ILauncherClient* launcher = nullptr
     );
 
     /**
@@ -52,6 +55,7 @@ private:
     std::unique_ptr<control::IEventMapper> m_eventMapper;
     std::unique_ptr<ui::OverlayGUI> m_uiModule;
 
+    network::ILauncherClient* m_launcher = nullptr;
     std::string m_streamUrl;
     bool m_running = true;
     bool m_isCaptured = false;

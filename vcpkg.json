@@ -4,7 +4,6 @@
   "dependencies": [
     "ixwebsocket",
     "nlohmann-json",
-    "yaml-cpp",
     {
       "name": "libdatachannel",
       "features": ["srtp", "ws"]

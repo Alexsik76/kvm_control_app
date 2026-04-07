@@ -3,6 +3,7 @@
 #include "control/IInputCapturer.hpp"
 #include "control/IHIDClient.hpp"
 #include "control/IEventMapper.hpp"
+#include "network/ILauncherClient.hpp"
 #include "ui/OverlayGUI.hpp"
 #include <ixwebsocket/IXNetSystem.h>
 #include <iostream>
@@ -38,20 +39,29 @@ bool KVMApplication::Initialize(
     std::unique_ptr<video::IVideoDecoder> videoModule,
     std::unique_ptr<control::IInputCapturer> inputCapturer,
     std::unique_ptr<control::IHIDClient> hidModule,
-    std::unique_ptr<control::IEventMapper> eventMapper) 
+    std::unique_ptr<control::IEventMapper> eventMapper,
+    network::ILauncherClient* launcher) 
 {
     m_streamUrl = streamUrl;
+    m_launcher = launcher;
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         std::cerr << "[SDL] Init error: " << SDL_GetError() << "\n";
+        if (m_launcher) m_launcher->SendError("SDL Init failed: " + std::string(SDL_GetError()));
         return false;
     }
 
     m_window.reset(SDL_CreateWindow("IP-KVM Client", 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY));
-    if (!m_window) return false;
+    if (!m_window) {
+        if (m_launcher) m_launcher->SendError("Failed to create window");
+        return false;
+    }
 
     m_renderer.reset(SDL_CreateRenderer(m_window.get(), nullptr));
-    if (!m_renderer) return false;
+    if (!m_renderer) {
+        if (m_launcher) m_launcher->SendError("Failed to create renderer");
+        return false;
+    }
 
     // Use Injected Modules
     m_videoModule = std::move(videoModule);
@@ -64,7 +74,10 @@ bool KVMApplication::Initialize(
     m_inputCapturer->SetWindow(m_window.get());
 
     // Initialize Video
-    if (!m_videoModule->Initialize()) return false;
+    if (!m_videoModule->Initialize()) {
+        if (m_launcher) m_launcher->SendError("Video module init failed");
+        return false;
+    }
     m_videoModule->OpenStream(streamUrl);
 
     // Initialize UI Module
@@ -90,6 +103,7 @@ bool KVMApplication::Initialize(
         m_hidModule->SendMouseEvent(ev); 
     });
 
+    if (m_launcher) m_launcher->SendStatus("Initialization complete");
     return true;
 }
 

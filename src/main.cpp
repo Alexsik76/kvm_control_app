@@ -1,67 +1,68 @@
 #include "core/KVMApplication.hpp"
-#include "core/AppConfig.hpp"
 #include "network/WinHttpClient.hpp"
+#include "network/ILauncherClient.hpp"
 #include "video/IVideoDecoder.hpp"
 #include "control/IInputCapturer.hpp"
 #include "control/IHIDClient.hpp"
 #include "control/IEventMapper.hpp"
-#include <nlohmann/json.hpp>
 #include <iostream>
 #include <memory>
-#include <format>
+#include <string>
+#include <vector>
 
-using json = nlohmann::json;
+int main(int argc, char* argv[]) {
+    std::string pipeName;
 
-int main() {
-    // 1. Configuration
-    kvm::core::AppConfig config;
-    if (!config.Load("config.yaml")) {
-        std::cerr << "[Main] Failed to load config.yaml\n";
-        return 1;
-    }
-
-    // 2. Dependencies
-    auto httpClient = std::make_shared<kvm::network::WinHttpClient>();
-    std::string token = "";
-
-    // 3. Authentication (Composition Root logic)
-    std::string username = config.GetUsername();
-    std::string password = config.GetPassword();
-    if (!username.empty() && !password.empty()) {
-        std::cout << "[Auth] Attempting login for: " << username << "\n";
-        std::string loginBody = std::format("username={}&password={}", username, password);
-        std::string response;
-        if (httpClient->Post(config.GetLoginUrl(), loginBody, response, "application/x-www-form-urlencoded")) {
-            try {
-                auto resJson = json::parse(response);
-                if (resJson.contains("access_token")) {
-                    token = resJson["access_token"].get<std::string>();
-                    std::cout << "[Auth] Login successful.\n";
-                }
-            } catch (...) {
-                std::cerr << "[Auth] Failed to parse response.\n";
-            }
-        } else {
-            std::cerr << "[Auth] Login request failed.\n";
+    // 1. Parse Arguments
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--pipe" && i + 1 < argc) {
+            pipeName = argv[++i];
         }
     }
 
-    // 4. Final URLs
-    std::string streamUrl = config.GetStreamUrl(token);
-    std::string hidUrl = config.GetHidUrl(token);
+    if (pipeName.empty()) {
+        std::cerr << "Usage: control_app --pipe <PIPE_NAME>\n";
+        return 1;
+    }
 
-    std::cout << "[App] Video URL: " << streamUrl << "\n";
-    std::cout << "[App] HID URL:   " << hidUrl << "\n";
+    // 2. Connect to Launcher
+    auto launcher = kvm::network::CreateLauncherClient();
+    std::cout << "[Main] Connecting to pipe: " << pipeName << "...\n";
+    if (!launcher->Connect(pipeName)) {
+        std::cerr << "[Main] Failed to connect to pipe.\n";
+        return 1;
+    }
 
-    // 5. Instantiate App and Inject Dependencies
+    // 3. Handshake
+    kvm::network::HandshakeData handshake;
+    std::cout << "[Main] Waiting for handshake...\n";
+    if (!launcher->WaitForHandshake(handshake)) {
+        std::cerr << "[Main] Handshake failed.\n";
+        launcher->SendError("Handshake failed");
+        return 1;
+    }
+
+    std::cout << "[Main] Received Handshake. Stream: " << handshake.streamUrl << "\n";
+    launcher->SendStatus("Handshake successful. Initializing modules...");
+
+    // 4. Dependencies
+    auto httpClient = std::make_shared<kvm::network::WinHttpClient>();
     auto hidModule = kvm::control::CreateHIDClient();
     auto eventMapper = kvm::control::CreateEventMapper();
     auto videoModule = kvm::video::CreateVideoDecoder(nullptr, httpClient);
     auto inputCapturer = kvm::control::CreateInputCapturer(nullptr);
 
+    // 5. Run Application
     kvm::core::KVMApplication app;
-    if (app.Initialize(streamUrl, hidUrl, std::move(videoModule), std::move(inputCapturer), std::move(hidModule), std::move(eventMapper))) {
+    if (app.Initialize(handshake.streamUrl, handshake.hidUrl, 
+                      std::move(videoModule), std::move(inputCapturer), 
+                      std::move(hidModule), std::move(eventMapper),
+                      launcher.get())) {
+        launcher->SendStatus("Application running");
         app.Run();
+    } else {
+        launcher->SendError("Application initialization failed");
     }
 
     return 0;
