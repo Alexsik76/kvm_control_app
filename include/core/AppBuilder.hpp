@@ -18,12 +18,21 @@ public:
         auto app = std::make_unique<KVMApplication>();
         
         auto httpClient = std::make_shared<network::WinHttpClient>();
+        httpClient->SetAccessToken(handshake.accessToken);
+        
         auto hidModule = control::CreateHIDClient();
+        
+        std::string authorizedHidUrl = handshake.hidUrl;
+        if (!handshake.accessToken.empty()) {
+            authorizedHidUrl += (authorizedHidUrl.find('?') == std::string::npos ? "?" : "&");
+            authorizedHidUrl += "token=" + handshake.accessToken;
+        }
+
         auto eventMapper = control::CreateEventMapper();
         auto videoModule = video::CreateVideoDecoder(nullptr, httpClient);
         auto inputCapturer = control::CreateInputCapturer(nullptr);
 
-        if (!app->Initialize(handshake.streamUrl, handshake.hidUrl, 
+        if (!app->Initialize(handshake.streamUrl, authorizedHidUrl, 
                            std::move(videoModule), std::move(inputCapturer), 
                            std::move(hidModule), std::move(eventMapper), 
                            launcher)) {

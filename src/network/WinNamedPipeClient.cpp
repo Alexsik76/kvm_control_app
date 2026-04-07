@@ -46,19 +46,23 @@ public:
     }
 
     bool WaitForHandshake(HandshakeData& outData) override {
-        std::string message = ReadLine();
-        if (message.empty()) return false;
-
-        try {
-            auto j = json::parse(message);
-            if (j["Type"] == "Handshake") {
-                auto p = j["Payload"];
-                outData.accessToken = p["AccessToken"];
-                outData.streamUrl = p["StreamUrl"];
-                outData.hidUrl = p["HidUrl"];
-                return true;
+        // For the initial handshake, we can afford a short blocking read or repeated peeks
+        for (int i = 0; i < 50; ++i) { // 5 seconds timeout
+            std::string message = ReadLine();
+            if (!message.empty()) {
+                try {
+                    auto j = json::parse(message);
+                    if (j.contains("Type") && j["Type"] == "Handshake") {
+                        auto p = j["Payload"];
+                        outData.accessToken = p.contains("AccessToken") ? p["AccessToken"] : "";
+                        outData.streamUrl = p.contains("StreamUrl") ? p["StreamUrl"] : "";
+                        outData.hidUrl = p.contains("HidUrl") ? p["HidUrl"] : "";
+                        return true;
+                    }
+                } catch (...) {}
             }
-        } catch (...) {}
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
         return false;
     }
 
@@ -69,12 +73,15 @@ public:
             while (m_running) {
                 std::string line = ReadLine();
                 if (line.empty()) {
-                    if (m_running) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
                     continue;
                 }
                 try {
                     auto j = json::parse(line);
-                    onMessage(j["Type"], j["Payload"].is_string() ? j["Payload"].get<std::string>() : j["Payload"].dump());
+                    std::string type = j.contains("Type") ? j["Type"] : "";
+                    std::string payload = j.contains("Payload") ? 
+                        (j["Payload"].is_string() ? j["Payload"].get<std::string>() : j["Payload"].dump()) : "";
+                    onMessage(type, payload);
                 } catch (...) {}
             }
         });
@@ -83,7 +90,6 @@ public:
     void Stop() override {
         m_running = false;
         if (m_worker.joinable()) {
-            // Cancel pending I/O if necessary, or just wait for timeout/disconnect
             m_worker.join();
         }
     }
@@ -111,23 +117,31 @@ private:
         std::string s = j.dump() + "\n";
         
         DWORD written;
-        WriteFile(m_hPipe, s.c_str(), static_cast<DWORD>(s.length()), &written, NULL);
+        if (!WriteFile(m_hPipe, s.c_str(), static_cast<DWORD>(s.length()), &written, NULL)) {
+            // Handle error if needed
+        }
     }
 
     std::string ReadLine() {
         if (m_hPipe == INVALID_HANDLE_VALUE) return "";
+
+        DWORD available = 0;
+        if (!PeekNamedPipe(m_hPipe, NULL, 0, NULL, &available, NULL) || available == 0) {
+            return "";
+        }
+
         std::vector<char> buffer;
         char ch;
         DWORD bytesRead;
 
-        // Use PeekNamedPipe to avoid blocking indefinitely if possible, 
-        // but for simplicity, we use blocking ReadFile in the background thread.
-        while (ReadFile(m_hPipe, &ch, 1, &bytesRead, NULL) && bytesRead > 0) {
+        // Now that we know data is available, we can read. 
+        // We still read byte-by-byte to handle the newline termination properly.
+        while (available > 0 && ReadFile(m_hPipe, &ch, 1, &bytesRead, NULL) && bytesRead > 0) {
+            available--;
             if (ch == '\n') break;
             buffer.push_back(ch);
         }
         
-        if (buffer.empty() && bytesRead == 0) return "";
         return std::string(buffer.begin(), buffer.end());
     }
 

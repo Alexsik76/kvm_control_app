@@ -13,18 +13,21 @@ namespace kvm::network {
 bool WinHttpClient::Post(const std::string& url, const std::string& body, std::string& outResponse, const std::string& contentType) {
 #ifdef _WIN32
     std::string cleanUrl = url;
-    std::string token;
-    size_t tokenPos = cleanUrl.find("token=");
-    if (tokenPos != std::string::npos) {
-        token = cleanUrl.substr(tokenPos + 6);
-        size_t ampPos = token.find('&');
-        if (ampPos != std::string::npos) token = token.substr(0, ampPos);
-        
-        // Remove token from URL for API calls as per README_API.md
-        size_t startRemove = tokenPos > 0 && (cleanUrl[tokenPos-1] == '?' || cleanUrl[tokenPos-1] == '&') ? tokenPos - 1 : tokenPos;
-        size_t endRemove = (ampPos != std::string::npos) ? tokenPos + 6 + ampPos : cleanUrl.length();
-        cleanUrl.erase(startRemove, endRemove - startRemove);
-        if (!cleanUrl.empty() && cleanUrl.back() == '?') cleanUrl.pop_back();
+    std::string token = m_accessToken;
+    
+    if (token.empty()) {
+        size_t tokenPos = cleanUrl.find("token=");
+        if (tokenPos != std::string::npos) {
+            token = cleanUrl.substr(tokenPos + 6);
+            size_t ampPos = token.find('&');
+            if (ampPos != std::string::npos) token = token.substr(0, ampPos);
+            
+            // Remove token from URL for API calls as per README_API.md
+            size_t startRemove = tokenPos > 0 && (cleanUrl[tokenPos-1] == '?' || cleanUrl[tokenPos-1] == '&') ? tokenPos - 1 : tokenPos;
+            size_t endRemove = (ampPos != std::string::npos) ? tokenPos + 6 + ampPos : cleanUrl.length();
+            cleanUrl.erase(startRemove, endRemove - startRemove);
+            if (!cleanUrl.empty() && cleanUrl.back() == '?') cleanUrl.pop_back();
+        }
     }
 
     std::wstring wUrl(cleanUrl.begin(), cleanUrl.end());
