@@ -33,6 +33,17 @@ public:
     virtual bool WaitForHandshake(HandshakeData& outData) = 0;
 
     /**
+     * @brief Starts background listening for messages from Launcher.
+     * Use a callback to process received messages.
+     */
+    virtual void StartAsync(std::function<void(const std::string& type, const std::string& payload)> onMessage) = 0;
+
+    /**
+     * @brief Stops the background listener thread.
+     */
+    virtual void Stop() = 0;
+
+    /**
      * @brief Sends a status update message to the Launcher.
      */
     virtual void SendStatus(const std::string& message) = 0;

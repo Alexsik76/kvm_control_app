@@ -1,69 +1,48 @@
-#include "core/KVMApplication.hpp"
-#include "network/WinHttpClient.hpp"
+#include "core/CommandLineParser.hpp"
+#include "core/AppBuilder.hpp"
 #include "network/ILauncherClient.hpp"
-#include "video/IVideoDecoder.hpp"
-#include "control/IInputCapturer.hpp"
-#include "control/IHIDClient.hpp"
-#include "control/IEventMapper.hpp"
 #include <iostream>
 #include <memory>
-#include <string>
-#include <vector>
 
 int main(int argc, char* argv[]) {
-    std::string pipeName;
+    // 1. Parse Command Line
+    kvm::core::CommandLineParser parser(argc, argv);
+    auto pipeName = parser.GetOption("--pipe");
 
-    // 1. Parse Arguments
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--pipe" && i + 1 < argc) {
-            pipeName = argv[++i];
-        }
-    }
-
-    if (pipeName.empty()) {
+    if (!pipeName) {
         std::cerr << "Usage: control_app --pipe <PIPE_NAME>\n";
         return 1;
     }
 
     // 2. Connect to Launcher
     auto launcher = kvm::network::CreateLauncherClient();
-    std::cout << "[Main] Connecting to pipe: " << pipeName << "...\n";
-    if (!launcher->Connect(pipeName)) {
-        std::cerr << "[Main] Failed to connect to pipe.\n";
+    if (!launcher->Connect(*pipeName)) {
+        std::cerr << "[Main] Failed to connect to pipe: " << *pipeName << "\n";
         return 1;
     }
 
     // 3. Handshake
     kvm::network::HandshakeData handshake;
-    std::cout << "[Main] Waiting for handshake...\n";
     if (!launcher->WaitForHandshake(handshake)) {
-        std::cerr << "[Main] Handshake failed.\n";
         launcher->SendError("Handshake failed");
         return 1;
     }
 
-    std::cout << "[Main] Received Handshake. Stream: " << handshake.streamUrl << "\n";
-    launcher->SendStatus("Handshake successful. Initializing modules...");
+    // 4. Start Async IPC Listener
+    launcher->StartAsync([](const std::string& type, const std::string& payload) {
+        std::cout << "[IPC] Received: " << type << " -> " << payload << "\n";
+        // Handle incoming commands from Launcher here (e.g., Close, Settings Change)
+    });
 
-    // 4. Dependencies
-    auto httpClient = std::make_shared<kvm::network::WinHttpClient>();
-    auto hidModule = kvm::control::CreateHIDClient();
-    auto eventMapper = kvm::control::CreateEventMapper();
-    auto videoModule = kvm::video::CreateVideoDecoder(nullptr, httpClient);
-    auto inputCapturer = kvm::control::CreateInputCapturer(nullptr);
-
-    // 5. Run Application
-    kvm::core::KVMApplication app;
-    if (app.Initialize(handshake.streamUrl, handshake.hidUrl, 
-                      std::move(videoModule), std::move(inputCapturer), 
-                      std::move(hidModule), std::move(eventMapper),
-                      launcher.get())) {
+    // 5. Bootstrap and Run Application
+    auto app = kvm::core::AppBuilder::Build(handshake, launcher.get());
+    if (app) {
         launcher->SendStatus("Application running");
-        app.Run();
+        app->Run();
     } else {
-        launcher->SendError("Application initialization failed");
+        launcher->SendError("Application failed to start");
     }
 
+    launcher->Stop();
     return 0;
 }

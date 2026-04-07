@@ -4,6 +4,8 @@
 #include <iostream>
 #include <format>
 #include <vector>
+#include <thread>
+#include <atomic>
 
 using json = nlohmann::json;
 
@@ -11,10 +13,14 @@ namespace kvm::network {
 
 class WinNamedPipeClient : public ILauncherClient {
 public:
-    WinNamedPipeClient() : m_hPipe(INVALID_HANDLE_VALUE) {}
-    ~WinNamedPipeClient() override { Close(); }
+    WinNamedPipeClient() : m_hPipe(INVALID_HANDLE_VALUE), m_running(false) {}
+    ~WinNamedPipeClient() override { 
+        Stop();
+        Close(); 
+    }
 
     bool Connect(const std::string& pipeName) override {
+        // ... (previous implementation remains same)
         std::string fullPath = std::format("\\\\.\\pipe\\{}", pipeName);
         
         while (true) {
@@ -26,12 +32,10 @@ public:
             if (m_hPipe != INVALID_HANDLE_VALUE) break;
 
             if (GetLastError() != ERROR_PIPE_BUSY) {
-                std::cerr << "[Pipe] Could not open pipe: " << GetLastError() << "\n";
                 return false;
             }
 
             if (!WaitNamedPipeA(fullPath.c_str(), 2000)) {
-                std::cerr << "[Pipe] WaitNamedPipe timed out.\n";
                 return false;
             }
         }
@@ -54,10 +58,34 @@ public:
                 outData.hidUrl = p["HidUrl"];
                 return true;
             }
-        } catch (const std::exception& e) {
-            std::cerr << "[Pipe] Handshake parse error: " << e.what() << "\n";
-        }
+        } catch (...) {}
         return false;
+    }
+
+    void StartAsync(std::function<void(const std::string& type, const std::string& payload)> onMessage) override {
+        if (m_running) return;
+        m_running = true;
+        m_worker = std::thread([this, onMessage]() {
+            while (m_running) {
+                std::string line = ReadLine();
+                if (line.empty()) {
+                    if (m_running) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    continue;
+                }
+                try {
+                    auto j = json::parse(line);
+                    onMessage(j["Type"], j["Payload"].is_string() ? j["Payload"].get<std::string>() : j["Payload"].dump());
+                } catch (...) {}
+            }
+        });
+    }
+
+    void Stop() override {
+        m_running = false;
+        if (m_worker.joinable()) {
+            // Cancel pending I/O if necessary, or just wait for timeout/disconnect
+            m_worker.join();
+        }
     }
 
     void SendStatus(const std::string& message) override {
@@ -87,10 +115,13 @@ private:
     }
 
     std::string ReadLine() {
+        if (m_hPipe == INVALID_HANDLE_VALUE) return "";
         std::vector<char> buffer;
         char ch;
         DWORD bytesRead;
 
+        // Use PeekNamedPipe to avoid blocking indefinitely if possible, 
+        // but for simplicity, we use blocking ReadFile in the background thread.
         while (ReadFile(m_hPipe, &ch, 1, &bytesRead, NULL) && bytesRead > 0) {
             if (ch == '\n') break;
             buffer.push_back(ch);
@@ -102,6 +133,8 @@ private:
 
 private:
     HANDLE m_hPipe;
+    std::thread m_worker;
+    std::atomic<bool> m_running;
 };
 
 std::unique_ptr<ILauncherClient> CreateLauncherClient() {
