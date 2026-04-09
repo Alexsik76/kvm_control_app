@@ -50,4 +50,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     crypt32.lib
     secur32.lib
     winhttp.lib
+    bcrypt.lib
 )
