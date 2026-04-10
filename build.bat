@@ -63,6 +63,11 @@ if %ERRORLEVEL% EQU 0 (
         
         :: Copy other potential dependencies from vcpkg
         if exist "build\Debug\datachannel.dll" copy /Y "build\Debug\datachannel.dll" "!CS_BIN_DIR!\"
+        if exist "build\Debug\libcrypto-*.dll" copy /Y "build\Debug\libcrypto-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\Debug\libssl-*.dll" copy /Y "build\Debug\libssl-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\Debug\juice.dll" copy /Y "build\Debug\juice.dll" "!CS_BIN_DIR!\"
+        if exist "build\Debug\srtp2.dll" copy /Y "build\Debug\srtp2.dll" "!CS_BIN_DIR!\"
+        if exist "build\Debug\swresample-*.dll" copy /Y "build\Debug\swresample-*.dll" "!CS_BIN_DIR!\"
         
         echo [INFO] Deployment to C# bin folder finished.
     ) else (

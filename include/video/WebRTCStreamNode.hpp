@@ -53,8 +53,8 @@ private:
     void StartSignaling(std::string signalingUrl, std::string token);
     void SendIceCandidate(const std::string& signalingUrl, const std::string& candidateSdp);
     void DecodeLoop();
+    void ParseAndInjectSpropParameterSets(const std::string& sdp);
 
-    // FFmpeg context for decoding H.264 NAL units from WebRTC
     bool SetupDecoder();
     void DecodeVideoData(const uint8_t* data, size_t size);
     void ProcessFrame(AVFrame* frame);
