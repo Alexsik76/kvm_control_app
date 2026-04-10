@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: --- Configuration ---
+set "CS_BIN_DIR=..\kvm_desktop\src\KvmDesktop\bin\Debug\net10.0"
+
 :: Attempt to find the latest Visual Studio installation
 set "VS_WHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 if not exist "!VS_WHERE!" (
@@ -35,16 +38,6 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-:: Run Configuration
-echo [INFO] Checking vcpkg installation...
-if not exist "vcpkg\vcpkg.exe" (
-    echo [INFO] Bootstrapping vcpkg...
-    if not exist "vcpkg" (
-        git clone https://github.com/microsoft/vcpkg.git
-    )
-    call vcpkg\bootstrap-vcpkg.bat
-)
-
 echo [INFO] Running CMake Configuration...
 cmake --preset default
 if %ERRORLEVEL% neq 0 (
@@ -58,8 +51,23 @@ cmake --build build --config Debug
 
 if %ERRORLEVEL% EQU 0 (
     echo [SUCCESS] Build completed.
-    echo [INFO] Running executable...
-    .\build\Debug\KVMControlApp.exe
+    
+    if exist "!CS_BIN_DIR!" (
+        echo [INFO] Copying DLLs to C# project bin directory...
+        copy /Y "build\Debug\KVMVideoCodec.dll" "!CS_BIN_DIR!\"
+        
+        :: Also copy FFmpeg DLLs if they are in the build/Debug folder
+        if exist "build\Debug\avcodec-*.dll" copy /Y "build\Debug\av*.dll" "!CS_BIN_DIR!\"
+        if exist "build\Debug\swscale-*.dll" copy /Y "build\Debug\swscale-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\Debug\avutil-*.dll" copy /Y "build\Debug\avutil-*.dll" "!CS_BIN_DIR!\"
+        
+        :: Copy other potential dependencies from vcpkg
+        if exist "build\Debug\datachannel.dll" copy /Y "build\Debug\datachannel.dll" "!CS_BIN_DIR!\"
+        
+        echo [INFO] Deployment to C# bin folder finished.
+    ) else (
+        echo [WARNING] C# bin directory not found at !CS_BIN_DIR!. Skipping copy.
+    )
 ) else (
     echo [ERROR] Build failed.
 )

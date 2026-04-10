@@ -9,6 +9,8 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
+#include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
 }
 
 using json = nlohmann::json;
@@ -26,7 +28,8 @@ bool WebRTCStreamNode::Initialize() {
     if (!m_frame) m_frame = av_frame_alloc();
     if (!m_packet) m_packet = av_packet_alloc();
     if (!m_sharedFrame) m_sharedFrame = av_frame_alloc();
-    return m_frame && m_packet && m_sharedFrame && SetupDecoder();
+    if (!m_bgraFrame) m_bgraFrame = av_frame_alloc();
+    return m_frame && m_packet && m_sharedFrame && m_bgraFrame && SetupDecoder();
 }
 
 bool WebRTCStreamNode::SetupDecoder() {
@@ -44,11 +47,14 @@ bool WebRTCStreamNode::SetupDecoder() {
     return true;
 }
 
-bool WebRTCStreamNode::OpenStream(const std::string& signalingUrl) {
+bool WebRTCStreamNode::OpenStream(const std::string& signalingUrl, const std::string& token) {
     if (m_running) return false;
+    if (m_httpClient) {
+        m_httpClient->SetAccessToken(token);
+    }
     m_running = true;
     m_decodeWorker = std::thread(&WebRTCStreamNode::DecodeLoop, this);
-    m_signalingThread = std::thread(&WebRTCStreamNode::StartSignaling, this, signalingUrl);
+    m_signalingThread = std::thread(&WebRTCStreamNode::StartSignaling, this, signalingUrl, token);
     return true;
 }
 
@@ -57,14 +63,13 @@ void WebRTCStreamNode::DecodeVideoData(const uint8_t* data, size_t size) {
     m_packet->data = const_cast<uint8_t*>(data);
     m_packet->size = static_cast<int>(size);
     int ret = avcodec_send_packet(m_codecCtx, m_packet);
-    if (ret < 0) {
-        char errbuf[256];
-        av_strerror(ret, errbuf, sizeof(errbuf));
-        std::cerr << "[Decoder] avcodec_send_packet error: " << errbuf << std::endl;
-        return;
-    }
+    if (ret < 0) return;
+
     while (avcodec_receive_frame(m_codecCtx, m_frame) >= 0) {
         if (m_frame->width > 0 && m_frame->height > 0) {
+            ProcessFrame(m_frame);
+            
+            // Legacy shared frame update
             std::lock_guard<std::mutex> lock(m_frameMutex);
             av_frame_unref(m_sharedFrame);
             av_frame_ref(m_sharedFrame, m_frame);
@@ -72,6 +77,33 @@ void WebRTCStreamNode::DecodeVideoData(const uint8_t* data, size_t size) {
         }
     }
     av_packet_unref(m_packet);
+}
+
+void WebRTCStreamNode::ProcessFrame(AVFrame* frame) {
+    if (!m_frameCallback) return;
+
+    // Initialize or re-initialize SwsContext if resolution changes
+    m_swsContext = sws_getCachedContext(m_swsContext,
+        frame->width, frame->height, (AVPixelFormat)frame->format,
+        frame->width, frame->height, AV_PIX_FMT_BGRA,
+        SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
+
+    if (!m_swsContext) return;
+
+    // Prepare BGRA frame
+    if (m_bgraFrame->width != frame->width || m_bgraFrame->height != frame->height) {
+        av_frame_unref(m_bgraFrame);
+        m_bgraFrame->format = AV_PIX_FMT_BGRA;
+        m_bgraFrame->width = frame->width;
+        m_bgraFrame->height = frame->height;
+        av_frame_get_buffer(m_bgraFrame, 0);
+    }
+
+    sws_scale(m_swsContext, frame->data, frame->linesize, 0, frame->height,
+              m_bgraFrame->data, m_bgraFrame->linesize);
+
+    // Call C# callback
+    m_frameCallback(m_bgraFrame->data[0], m_bgraFrame->width, m_bgraFrame->height, m_bgraFrame->linesize[0]);
 }
 
 bool WebRTCStreamNode::GetLatestFrame(AVFrame* destFrame) {
@@ -93,17 +125,19 @@ void WebRTCStreamNode::Cleanup() {
     if (m_signalingThread.joinable()) m_signalingThread.join();
     if (m_decodeWorker.joinable()) m_decodeWorker.join();
 
-    if (m_codecCtx) avcodec_free_context(&m_codecCtx);
-    if (m_sharedFrame) av_frame_free(&m_sharedFrame);
-    if (m_frame) av_frame_free(&m_frame);
-    if (m_packet) av_packet_free(&m_packet);
+    if (m_swsContext) { sws_freeContext(m_swsContext); m_swsContext = nullptr; }
+    if (m_bgraFrame) { av_frame_free(&m_bgraFrame); m_bgraFrame = nullptr; }
+    if (m_codecCtx) { avcodec_free_context(&m_codecCtx); m_codecCtx = nullptr; }
+    if (m_sharedFrame) { av_frame_free(&m_sharedFrame); m_sharedFrame = nullptr; }
+    if (m_frame) { av_frame_free(&m_frame); m_frame = nullptr; }
+    if (m_packet) { av_packet_free(&m_packet); m_packet = nullptr; }
     m_hasNewFrame = false;
 
     std::lock_guard<std::mutex> lock(m_queueMutex);
     std::queue<std::vector<uint8_t>>().swap(m_packetQueue);
 }
 
-void WebRTCStreamNode::StartSignaling(std::string signalingUrl) {
+void WebRTCStreamNode::StartSignaling(std::string signalingUrl, std::string token) {
     rtc::Configuration config;
     m_peerConnection = std::make_shared<rtc::PeerConnection>(config);
     
@@ -116,7 +150,6 @@ void WebRTCStreamNode::StartSignaling(std::string signalingUrl) {
         }
     });
 
-    // CRITICAL: Setup H.264 codec parameters for MediaMTX compatibility
     auto video = rtc::Description::Video("video", rtc::Description::Direction::RecvOnly);
     video.addH264Codec(96, "packetization-mode=1;profile-level-id=42e028");
     m_videoTrack = m_peerConnection->addTrack(video);
@@ -139,9 +172,11 @@ void WebRTCStreamNode::StartSignaling(std::string signalingUrl) {
         else SendIceCandidate(signalingUrl, candidate.candidate());
     });
 
-    m_peerConnection->onLocalDescription([signalingUrl, this](const rtc::Description& desc) {
+    m_peerConnection->onLocalDescription([signalingUrl, token, this](const rtc::Description& desc) {
         json offerJson = {{"sdp", desc.generateSdp()}, {"type", desc.typeString()}};
         std::string response;
+        
+        // Use NodeService style signaling if needed, but for now direct post
         if (m_httpClient && m_httpClient->Post(signalingUrl, offerJson.dump(), response)) {
             try {
                 json answerJson = json::parse(response);

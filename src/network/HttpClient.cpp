@@ -1,4 +1,4 @@
-#include "network/WinHttpClient.hpp"
+#include "network/HttpClient.hpp"
 #include <iostream>
 #include <vector>
 
@@ -10,7 +10,7 @@
 
 namespace kvm::network {
 
-bool WinHttpClient::Post(const std::string& url, const std::string& body, std::string& outResponse, const std::string& contentType) {
+bool HttpClient::Post(const std::string& url, const std::string& body, std::string& outResponse, const std::string& contentType) {
 #ifdef _WIN32
     std::string cleanUrl = url;
     std::string token = m_accessToken;

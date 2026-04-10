@@ -15,6 +15,7 @@
 struct AVFrame;
 struct AVCodecContext;
 struct AVPacket;
+struct SwsContext;
 
 namespace rtc {
     class PeerConnection;
@@ -22,6 +23,8 @@ namespace rtc {
 }
 
 namespace kvm::video {
+
+typedef void (*FrameCallback)(uint8_t* data, int width, int height, int stride);
 
 class WebRTCStreamNode {
 public:
@@ -31,9 +34,12 @@ public:
     bool Initialize();
     
     // Starts async negotiation via FastAPI signaling server
-    bool OpenStream(const std::string& signalingUrl);
+    bool OpenStream(const std::string& signalingUrl, const std::string& token = "");
     
-    // Fetches the latest YUV frame for SDLVideoDecoder
+    // Set callback for receiving decoded frames
+    void SetFrameCallback(FrameCallback callback) { m_frameCallback = callback; }
+    
+    // Fetches the latest YUV frame (legacy, kept for internal use if needed)
     bool GetLatestFrame(AVFrame* destFrame);
     
     void Flush();
@@ -44,13 +50,14 @@ public:
 
 private:
     void Cleanup();
-    void StartSignaling(std::string signalingUrl);
+    void StartSignaling(std::string signalingUrl, std::string token);
     void SendIceCandidate(const std::string& signalingUrl, const std::string& candidateSdp);
     void DecodeLoop();
 
     // FFmpeg context for decoding H.264 NAL units from WebRTC
     bool SetupDecoder();
     void DecodeVideoData(const uint8_t* data, size_t size);
+    void ProcessFrame(AVFrame* frame);
 
 private:
     std::atomic<bool> m_running{false};
@@ -72,6 +79,11 @@ private:
     std::mutex m_frameMutex;
     AVFrame* m_sharedFrame = nullptr;
     bool m_hasNewFrame = false;
+
+    // Conversion to BGRA
+    SwsContext* m_swsContext = nullptr;
+    AVFrame* m_bgraFrame = nullptr;
+    FrameCallback m_frameCallback = nullptr;
 
     // Producer-Consumer for decoding
     std::queue<std::vector<uint8_t>> m_packetQueue;
