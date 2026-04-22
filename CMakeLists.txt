@@ -1,6 +1,24 @@
 cmake_minimum_required(VERSION 3.15)
 project(KVMVideoCodec VERSION 0.1.0 LANGUAGES CXX)
 
+# Version embedding
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE KVM_GIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(NOT KVM_GIT_HASH)
+    set(KVM_GIT_HASH "unknown")
+endif()
+string(TIMESTAMP KVM_BUILD_DATE "%Y-%m-%dT%H:%M:%SZ" UTC)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/Version.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/Version.hpp
+    @ONLY
+)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -24,6 +42,7 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_include_directories(${PROJECT_NAME} PRIVATE ${FFMPEG_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_directories(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARY_DIRS})
 
 # Link Libraries

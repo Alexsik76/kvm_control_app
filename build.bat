@@ -1,4 +1,8 @@
 @echo off
+echo [INFO] build.bat is the canonical native build entry point.
+echo MSBuild (dotnet build from kvm_desktop) invokes this script automatically.
+echo You can also run it directly for standalone native builds or troubleshooting.
+echo.
 setlocal enabledelayedexpansion
 
 :: --- Configuration ---

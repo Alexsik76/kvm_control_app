@@ -8,11 +8,6 @@
       "name": "libdatachannel",
       "features": ["srtp", "ws"]
     },
-    "sdl3",
-    {
-      "name": "imgui",
-      "features": ["sdl3-binding", "sdl3-renderer-binding"]
-    },
     "ffmpeg"
   ]
 }

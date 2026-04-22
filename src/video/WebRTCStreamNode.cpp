@@ -53,9 +53,8 @@ bool WebRTCStreamNode::Initialize() {
     av_log_set_level(AV_LOG_QUIET);
     if (!m_frame) m_frame = av_frame_alloc();
     if (!m_packet) m_packet = av_packet_alloc();
-    if (!m_sharedFrame) m_sharedFrame = av_frame_alloc();
     if (!m_bgraFrame) m_bgraFrame = av_frame_alloc();
-    return m_frame && m_packet && m_sharedFrame && m_bgraFrame && SetupDecoder();
+    return m_frame && m_packet && m_bgraFrame && SetupDecoder();
 }
 
 bool WebRTCStreamNode::SetupDecoder() {
@@ -107,11 +106,6 @@ void WebRTCStreamNode::DecodeVideoData(const uint8_t* data, size_t size) {
     while (avcodec_receive_frame(m_codecCtx, m_frame) >= 0) {
         if (m_frame->width > 0 && m_frame->height > 0) {
             ProcessFrame(m_frame);
-
-            std::lock_guard<std::mutex> lock(m_frameMutex);
-            av_frame_unref(m_sharedFrame);
-            av_frame_ref(m_sharedFrame, m_frame);
-            m_hasNewFrame = true;
         }
     }
 }
@@ -140,15 +134,6 @@ void WebRTCStreamNode::ProcessFrame(AVFrame* frame) {
     m_frameCallback(m_bgraFrame->data[0], m_bgraFrame->width, m_bgraFrame->height, m_bgraFrame->linesize[0]);
 }
 
-bool WebRTCStreamNode::GetLatestFrame(AVFrame* destFrame) {
-    std::lock_guard<std::mutex> lock(m_frameMutex);
-    if (!m_hasNewFrame || !m_sharedFrame) return false;
-    av_frame_unref(destFrame);
-    av_frame_ref(destFrame, m_sharedFrame);
-    m_hasNewFrame = false;
-    return true;
-}
-
 void WebRTCStreamNode::Flush() { if (m_codecCtx) avcodec_flush_buffers(m_codecCtx); }
 
 void WebRTCStreamNode::Cleanup() {
@@ -162,10 +147,8 @@ void WebRTCStreamNode::Cleanup() {
     if (m_swsContext) { sws_freeContext(m_swsContext); m_swsContext = nullptr; }
     if (m_bgraFrame) { av_frame_free(&m_bgraFrame); m_bgraFrame = nullptr; }
     if (m_codecCtx) { avcodec_free_context(&m_codecCtx); m_codecCtx = nullptr; }
-    if (m_sharedFrame) { av_frame_free(&m_sharedFrame); m_sharedFrame = nullptr; }
     if (m_frame) { av_frame_free(&m_frame); m_frame = nullptr; }
     if (m_packet) { av_packet_free(&m_packet); m_packet = nullptr; }
-    m_hasNewFrame = false;
 
     std::lock_guard<std::mutex> lock(m_queueMutex);
     std::queue<std::vector<uint8_t>>().swap(m_packetQueue);

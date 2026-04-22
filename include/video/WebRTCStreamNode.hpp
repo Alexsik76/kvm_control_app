@@ -39,9 +39,6 @@ public:
     // Set callback for receiving decoded frames
     void SetFrameCallback(FrameCallback callback) { m_frameCallback = callback; }
     
-    // Fetches the latest YUV frame (legacy, kept for internal use if needed)
-    bool GetLatestFrame(AVFrame* destFrame);
-    
     void Flush();
     
     bool IsRunning() const noexcept { return m_running.load(); }
@@ -75,10 +72,6 @@ private:
     AVCodecContext* m_codecCtx = nullptr;
     AVFrame* m_frame = nullptr;
     AVPacket* m_packet = nullptr;
-
-    std::mutex m_frameMutex;
-    AVFrame* m_sharedFrame = nullptr;
-    bool m_hasNewFrame = false;
 
     // Conversion to BGRA
     SwsContext* m_swsContext = nullptr;

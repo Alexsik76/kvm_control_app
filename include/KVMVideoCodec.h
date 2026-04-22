@@ -36,10 +36,7 @@ KVM_API int KvmInitialize(const char* url, const char* token, FrameCallback call
 KVM_API void KvmStop();
 
 /**
- * @brief Manually retrieves the latest frame (optional alternative to callback).
- * @param data Pointer to pointer that will receive the data address.
- * @param width Pointer to receive the width.
- * @param height Pointer to receive the height.
- * @return 0 on success, -1 if no frame is available.
+ * @brief Returns the git short-hash of the DLL build.
+ * @return Pointer to a static, null-terminated string. Never null.
  */
-KVM_API int KvmGetFrame(uint8_t** data, int* width, int* height);
+KVM_API const char* KvmGetVersion();

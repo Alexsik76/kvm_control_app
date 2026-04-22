@@ -1,4 +1,5 @@
 #include "KVMVideoCodec.h"
+#include "Version.hpp"
 #include "video/WebRTCStreamNode.hpp"
 #include "network/HttpClient.hpp"
 #include <string>
@@ -65,11 +66,7 @@ KVM_API void KvmStop() {
     kvm::bridge::SessionManager::Instance().Stop();
 }
 
-KVM_API int KvmGetFrame(uint8_t** data, int* width, int* height) {
-    (void)data;
-    (void)width;
-    (void)height;
-    // This is currently handled via callback for efficiency in Avalonia.
-    // Return -1 to indicate pull-based access is not active.
-    return -1;
+KVM_API const char* KvmGetVersion() {
+    return kvm::VERSION_GIT_HASH;
 }
+
