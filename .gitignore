@@ -26,6 +26,7 @@ CMakeFiles/
 
 # Package managers (if we use vcpkg or Conan later)
 vcpkg_installed/
+vcpkg/
 
 
 docs/
