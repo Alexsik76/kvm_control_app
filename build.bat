@@ -1,5 +1,16 @@
 @echo off
+echo [INFO] build.bat is the canonical native build entry point.
+echo MSBuild (dotnet build from kvm_desktop) invokes this script automatically.
+echo You can also run it directly for standalone native builds or troubleshooting.
+echo.
 setlocal enabledelayedexpansion
+
+set "BUILD_CONFIG=%~1"
+if "%BUILD_CONFIG%"=="" set "BUILD_CONFIG=Debug"
+echo [INFO] Build configuration: %BUILD_CONFIG%
+
+:: --- Configuration ---
+set "CS_BIN_DIR=..\kvm_desktop\src\KvmDesktop\bin\%BUILD_CONFIG%\net10.0"
 
 :: Attempt to find the latest Visual Studio installation
 set "VS_WHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -35,16 +46,6 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-:: Run Configuration
-echo [INFO] Checking vcpkg installation...
-if not exist "vcpkg\vcpkg.exe" (
-    echo [INFO] Bootstrapping vcpkg...
-    if not exist "vcpkg" (
-        git clone https://github.com/microsoft/vcpkg.git
-    )
-    call vcpkg\bootstrap-vcpkg.bat
-)
-
 echo [INFO] Running CMake Configuration...
 cmake --preset default
 if %ERRORLEVEL% neq 0 (
@@ -54,12 +55,32 @@ if %ERRORLEVEL% neq 0 (
 
 :: Run Build
 echo [INFO] Running CMake Build...
-cmake --build build --config Debug
+cmake --build build --config %BUILD_CONFIG%
 
 if %ERRORLEVEL% EQU 0 (
     echo [SUCCESS] Build completed.
-    echo [INFO] Running executable...
-    .\build\Debug\KVMControlApp.exe
+    
+    if exist "!CS_BIN_DIR!" (
+        echo [INFO] Copying DLLs to C# project bin directory...
+        copy /Y "build\%BUILD_CONFIG%\KVMVideoCodec.dll" "!CS_BIN_DIR!\"
+        
+        :: Also copy FFmpeg DLLs if they are in the build/%BUILD_CONFIG% folder
+        if exist "build\%BUILD_CONFIG%\avcodec-*.dll" copy /Y "build\%BUILD_CONFIG%\av*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\swscale-*.dll" copy /Y "build\%BUILD_CONFIG%\swscale-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\avutil-*.dll" copy /Y "build\%BUILD_CONFIG%\avutil-*.dll" "!CS_BIN_DIR!\"
+        
+        :: Copy other potential dependencies from vcpkg
+        if exist "build\%BUILD_CONFIG%\datachannel.dll" copy /Y "build\%BUILD_CONFIG%\datachannel.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\libcrypto-*.dll" copy /Y "build\%BUILD_CONFIG%\libcrypto-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\libssl-*.dll" copy /Y "build\%BUILD_CONFIG%\libssl-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\juice.dll" copy /Y "build\%BUILD_CONFIG%\juice.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\srtp2.dll" copy /Y "build\%BUILD_CONFIG%\srtp2.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\swresample-*.dll" copy /Y "build\%BUILD_CONFIG%\swresample-*.dll" "!CS_BIN_DIR!\"
+        
+        echo [INFO] Deployment to C# bin folder finished.
+    ) else (
+        echo [WARNING] C# bin directory not found at !CS_BIN_DIR!. Skipping copy.
+    )
 ) else (
     echo [ERROR] Build failed.
 )
