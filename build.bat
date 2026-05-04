@@ -5,8 +5,12 @@ echo You can also run it directly for standalone native builds or troubleshootin
 echo.
 setlocal enabledelayedexpansion
 
+set "BUILD_CONFIG=%~1"
+if "%BUILD_CONFIG%"=="" set "BUILD_CONFIG=Debug"
+echo [INFO] Build configuration: %BUILD_CONFIG%
+
 :: --- Configuration ---
-set "CS_BIN_DIR=..\kvm_desktop\src\KvmDesktop\bin\Debug\net10.0"
+set "CS_BIN_DIR=..\kvm_desktop\src\KvmDesktop\bin\%BUILD_CONFIG%\net10.0"
 
 :: Attempt to find the latest Visual Studio installation
 set "VS_WHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -51,27 +55,27 @@ if %ERRORLEVEL% neq 0 (
 
 :: Run Build
 echo [INFO] Running CMake Build...
-cmake --build build --config Debug
+cmake --build build --config %BUILD_CONFIG%
 
 if %ERRORLEVEL% EQU 0 (
     echo [SUCCESS] Build completed.
     
     if exist "!CS_BIN_DIR!" (
         echo [INFO] Copying DLLs to C# project bin directory...
-        copy /Y "build\Debug\KVMVideoCodec.dll" "!CS_BIN_DIR!\"
+        copy /Y "build\%BUILD_CONFIG%\KVMVideoCodec.dll" "!CS_BIN_DIR!\"
         
-        :: Also copy FFmpeg DLLs if they are in the build/Debug folder
-        if exist "build\Debug\avcodec-*.dll" copy /Y "build\Debug\av*.dll" "!CS_BIN_DIR!\"
-        if exist "build\Debug\swscale-*.dll" copy /Y "build\Debug\swscale-*.dll" "!CS_BIN_DIR!\"
-        if exist "build\Debug\avutil-*.dll" copy /Y "build\Debug\avutil-*.dll" "!CS_BIN_DIR!\"
+        :: Also copy FFmpeg DLLs if they are in the build/%BUILD_CONFIG% folder
+        if exist "build\%BUILD_CONFIG%\avcodec-*.dll" copy /Y "build\%BUILD_CONFIG%\av*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\swscale-*.dll" copy /Y "build\%BUILD_CONFIG%\swscale-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\avutil-*.dll" copy /Y "build\%BUILD_CONFIG%\avutil-*.dll" "!CS_BIN_DIR!\"
         
         :: Copy other potential dependencies from vcpkg
-        if exist "build\Debug\datachannel.dll" copy /Y "build\Debug\datachannel.dll" "!CS_BIN_DIR!\"
-        if exist "build\Debug\libcrypto-*.dll" copy /Y "build\Debug\libcrypto-*.dll" "!CS_BIN_DIR!\"
-        if exist "build\Debug\libssl-*.dll" copy /Y "build\Debug\libssl-*.dll" "!CS_BIN_DIR!\"
-        if exist "build\Debug\juice.dll" copy /Y "build\Debug\juice.dll" "!CS_BIN_DIR!\"
-        if exist "build\Debug\srtp2.dll" copy /Y "build\Debug\srtp2.dll" "!CS_BIN_DIR!\"
-        if exist "build\Debug\swresample-*.dll" copy /Y "build\Debug\swresample-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\datachannel.dll" copy /Y "build\%BUILD_CONFIG%\datachannel.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\libcrypto-*.dll" copy /Y "build\%BUILD_CONFIG%\libcrypto-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\libssl-*.dll" copy /Y "build\%BUILD_CONFIG%\libssl-*.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\juice.dll" copy /Y "build\%BUILD_CONFIG%\juice.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\srtp2.dll" copy /Y "build\%BUILD_CONFIG%\srtp2.dll" "!CS_BIN_DIR!\"
+        if exist "build\%BUILD_CONFIG%\swresample-*.dll" copy /Y "build\%BUILD_CONFIG%\swresample-*.dll" "!CS_BIN_DIR!\"
         
         echo [INFO] Deployment to C# bin folder finished.
     ) else (
